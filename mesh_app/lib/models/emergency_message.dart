@@ -49,6 +49,9 @@ enum MessageStatus {
 
   /// TTL passed (FR-6). No longer forwarded or uploaded.
   expired,
+
+  /// Backend could not open or parse it (FR-9). No longer forwarded.
+  rejected,
 }
 
 enum RelayDirection { inbound, outbound }

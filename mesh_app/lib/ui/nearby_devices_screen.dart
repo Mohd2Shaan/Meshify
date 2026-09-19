@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../config.dart';
 import '../crypto/message_crypto.dart';
+import '../mesh/gateway_detector.dart';
 import '../mesh/mesh_controller.dart';
 import '../mesh/nearby_service.dart';
 import '../mesh/relay_manager.dart';
@@ -57,6 +58,8 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> {
               title: Text(p.name),
               trailing: Text(p.state.name),
             ),
+          const _Header('Gateway (FR-8, FR-9)'),
+          const _GatewayCard(),
           const _Header('Relay statistics'),
           Wrap(spacing: 8, runSpacing: 8, children: [
             _Stat('received', s.received),
@@ -96,6 +99,72 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> {
         ],
       ),
     );
+  }
+}
+
+class _GatewayCard extends StatelessWidget {
+  const _GatewayCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final gw = context.watch<GatewayDetector>();
+    final run = gw.lastRun;
+    final checked = gw.lastCheck == null
+        ? 'not checked yet'
+        : 'checked ${gw.lastCheck!.toLocal().toString().substring(11, 19)}';
+    return Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ListTile(
+            leading: Icon(gw.isGateway ? Icons.cloud_done : Icons.cloud_off,
+                color: gw.isGateway ? Colors.green : Colors.grey),
+            title: Text(gw.isGateway
+                ? 'This phone is a GATEWAY: HQ reachable'
+                : 'Not a gateway: HQ not reachable'),
+            subtitle: Text('${gw.settings.baseUrl} · $checked\n'
+                'Delivered to HQ from this phone: ${gw.deliveredTotal}'
+                '${run?.stoppedBecause != null ? '\nLast upload stopped: ${run!.stoppedBecause}' : ''}'),
+            isThreeLine: true,
+            trailing: gw.isUploading ? const CircularProgressIndicator() : null,
+          ),
+          OverflowBar(
+            alignment: MainAxisAlignment.end,
+            children: [
+              TextButton(onPressed: () => _editSettings(context, gw), child: const Text('Settings')),
+              TextButton(onPressed: gw.check, child: const Text('Check / upload now')),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _editSettings(BuildContext context, GatewayDetector gw) async {
+    final url = TextEditingController(text: gw.settings.baseUrl);
+    final key = TextEditingController(text: gw.settings.apiKey);
+    final save = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Backend (HQ) settings'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(
+            controller: url,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+                labelText: 'Backend URL', hintText: 'http://192.168.1.10:8080'),
+          ),
+          TextField(controller: key, decoration: const InputDecoration(labelText: 'Gateway API key')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Save')),
+        ],
+      ),
+    );
+    if (save == true) await gw.updateSettings(url.text, key.text);
+    url.dispose();
+    key.dispose();
   }
 }
 

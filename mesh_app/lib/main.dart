@@ -4,11 +4,13 @@ import 'package:provider/provider.dart';
 import 'config.dart';
 import 'crypto/message_crypto.dart';
 import 'db/app_database.dart';
+import 'mesh/gateway_detector.dart';
 import 'mesh/mesh_controller.dart';
 import 'mesh/nearby_service.dart';
 import 'mesh/relay_manager.dart';
 import 'services/background_service.dart';
 import 'services/emergency_sender.dart';
+import 'services/gateway_uploader.dart';
 import 'services/location_service.dart';
 import 'ui/setup_screen.dart';
 
@@ -34,7 +36,13 @@ Future<void> main() async {
     deviceId: deviceId,
     config: config,
   );
+  final gateway = GatewayDetector(
+    db: db,
+    uploader: GatewayUploader(db: db, deviceId: deviceId),
+    service: background,
+  );
   await controller.init();
+  await gateway.init();
 
   runApp(
     MultiProvider(
@@ -47,6 +55,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: nearby),
         ChangeNotifierProvider.value(value: relay),
         ChangeNotifierProvider.value(value: controller),
+        ChangeNotifierProvider.value(value: gateway),
       ],
       child: const MeshApp(),
     ),

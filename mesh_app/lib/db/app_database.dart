@@ -49,7 +49,8 @@ class RelayLog extends Table {
   Set<Column> get primaryKey => {relayId};
 }
 
-/// D3 GatewayUpload (ER: GatewayUpload). Filled in Phase 7 (FR-9).
+/// D3 GatewayUpload (ER: GatewayUpload). One row per message this phone
+/// delivered to the backend as a gateway (FR-9).
 @DataClassName('GatewayUploadEntry')
 class GatewayUploads extends Table {
   TextColumn get uploadId => text()();
@@ -153,6 +154,39 @@ class AppDatabase extends _$AppDatabase {
           ]))
         .watch();
   }
+
+  /// FR-9: what a gateway should upload, most urgent first. Includes messages
+  /// at the hop limit, which can't be relayed further but can still reach HQ.
+  Future<List<StoredMessage>> pendingUploads(DateTime now) {
+    return (select(messages)
+          ..where((m) =>
+              m.status.isInValues([MessageStatus.created, MessageStatus.relayed]) &
+              m.ttlExpiry.isBiggerThanValue(now))
+          ..orderBy([(m) => OrderingTerm.desc(m.priorityScore)]))
+        .get();
+  }
+
+  // ---- D3 GatewayUpload --------------------------------------------------------
+
+  Future<void> recordUpload({
+    required String uploadId,
+    required String messageId,
+    required String gatewayDeviceId,
+    required DateTime at,
+    required String ackStatus,
+  }) {
+    return into(gatewayUploads).insertOnConflictUpdate(GatewayUploadsCompanion.insert(
+      uploadId: uploadId,
+      messageId: messageId,
+      gatewayDeviceId: gatewayDeviceId,
+      uploadTimestamp: at,
+      backendAckStatus: ackStatus,
+    ));
+  }
+
+  Future<GatewayUploadEntry?> uploadFor(String messageId) =>
+      (select(gatewayUploads)..where((u) => u.messageId.equals(messageId))..limit(1))
+          .getSingleOrNull();
 
   // ---- D2 RelayLog -------------------------------------------------------------
 

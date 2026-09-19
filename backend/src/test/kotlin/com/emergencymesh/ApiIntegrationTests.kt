@@ -175,6 +175,13 @@ class ApiIntegrationTests {
 	}
 
 	@Test
+	fun `health is public, for gateway detection`() {
+		mvc.perform(get("/api/health"))
+			.andExpect(status().isOk)
+			.andExpect(jsonPath("$.status").value("ok"))
+	}
+
+	@Test
 	fun `incidents need a responder login, not a gateway key`() {
 		mvc.perform(get("/api/incidents")).andExpect(status().isUnauthorized)
 		mvc.perform(get("/api/incidents").header("X-API-Key", "dev-gateway-key")).andExpect(status().isForbidden)

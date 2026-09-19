@@ -41,6 +41,10 @@ object MeshPlatformChannel {
                         )
                         result.success(null)
                     }
+                    "setGateway" -> {
+                        MeshForegroundService.instance?.setGateway(call.argument<Boolean>("gateway") ?: false)
+                        result.success(null)
+                    }
                     "health" -> {
                         val problems = MeshHealth.problems(app)
                         result.success(
@@ -67,6 +71,11 @@ object MeshPlatformChannel {
                 }
             }
         }
+    }
+
+    /** FR-8: internet came or went; Dart re-checks whether the backend is reachable. */
+    fun sendInternet(validated: Boolean) {
+        main.post { channel?.invokeMethod("internetChanged", validated) }
     }
 
     /** Pushes a radio/permission change to Dart so it can pause/resume Nearby. */

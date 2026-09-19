@@ -86,3 +86,12 @@ tasks.register<JavaExec>("genKeys") {
 	mainClass.set("com.emergencymesh.crypto.KeyGenKt")
 	workingDir = projectDir
 }
+
+// ./gradlew seedDemo: posts TEST incidents to a running server (dashboard dev).
+tasks.register<JavaExec>("seedDemo") {
+	group = "emergency mesh"
+	description = "Post sealed [TEST] incidents to a running backend"
+	classpath = sourceSets["main"].runtimeClasspath
+	mainClass.set("com.emergencymesh.tools.SeedDemoKt")
+	workingDir = projectDir
+}

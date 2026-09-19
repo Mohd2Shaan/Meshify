@@ -13,7 +13,9 @@
     <!-- Location: required by Nearby discovery on Android 11 and below, and for GPS (FR-1) -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <!-- Gateway upload (FR-8, FR-9) -->
+    <!-- Gateway upload (FR-8, FR-9). usesCleartextTraffic below allows plain HTTP
+         to a laptop on the local network for the demo. The payload is sealed
+         (FR-3) either way; a real deployment would use HTTPS. -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- Passive background relay (SRS 2.3): foreground service + restart after reboot -->
@@ -26,6 +28,7 @@
     <application
         android:label="Emergency Mesh"
         android:name=".MeshApplication"
+        android:usesCleartextTraffic="true"
         android:icon="@mipmap/ic_launcher">
         <activity
             android:name=".MainActivity"

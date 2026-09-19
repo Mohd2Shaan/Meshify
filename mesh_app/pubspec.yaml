@@ -45,6 +45,7 @@ dependencies:
   collection: 1.19.1
   fixnum: 1.1.1
   sodium_libs: 3.4.6+4
+  dio: 5.11.1
 
 dev_dependencies:
   flutter_test:

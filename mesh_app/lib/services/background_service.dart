@@ -24,8 +24,11 @@ class MeshHealthStatus {
 class BackgroundService {
   BackgroundService() {
     _channel.setMethodCallHandler((call) async {
-      if (call.method == 'healthChanged') {
-        onHealthChanged?.call(MeshHealthStatus.fromMap(call.arguments));
+      switch (call.method) {
+        case 'healthChanged':
+          onHealthChanged?.call(MeshHealthStatus.fromMap(call.arguments));
+        case 'internetChanged':
+          onInternetChanged?.call(call.arguments as bool? ?? false);
       }
     });
   }
@@ -35,10 +38,17 @@ class BackgroundService {
   /// Called when Bluetooth / Location / Wi-Fi is switched on or off.
   void Function(MeshHealthStatus)? onHealthChanged;
 
+  /// Called when Android reports internet gained (true) or lost (false).
+  /// FR-8 re-checks the backend straight away instead of waiting for its timer.
+  void Function(bool validated)? onInternetChanged;
+
   /// Starts the service (idempotent). False if Android refused.
   Future<bool> start() async => await _call<bool>('start') ?? false;
 
   Future<void> stop() => _call('stop');
+
+  /// Shows "Gateway: uploading to HQ" in the service notification.
+  Future<void> setGateway(bool isGateway) => _call('setGateway', {'gateway': isGateway});
 
   Future<MeshHealthStatus> health() async =>
       MeshHealthStatus.fromMap(await _call<Map>('health'));

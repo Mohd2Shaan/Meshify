@@ -9,6 +9,9 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.ServiceInfo
 import android.location.LocationManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.IBinder
@@ -30,6 +33,16 @@ class MeshForegroundService : Service() {
     private var peers = 0
     private var carried = 0
     private var lastProblems: List<String>? = null
+    private var gateway = false
+
+    /** FR-8 trigger: tells Dart the moment Android has validated internet. */
+    private val networkCallback = object : ConnectivityManager.NetworkCallback() {
+        override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+            MeshPlatformChannel.sendInternet(caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED))
+        }
+
+        override fun onLost(network: Network) = MeshPlatformChannel.sendInternet(false)
+    }
 
     private val radioReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) = checkRadios()
@@ -46,6 +59,7 @@ class MeshForegroundService : Service() {
             addAction(WifiManager.WIFI_STATE_CHANGED_ACTION)
         }
         ContextCompat.registerReceiver(this, radioReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        getSystemService(ConnectivityManager::class.java)?.registerDefaultNetworkCallback(networkCallback)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -69,6 +83,7 @@ class MeshForegroundService : Service() {
 
     override fun onDestroy() {
         unregisterReceiver(radioReceiver)
+        runCatching { getSystemService(ConnectivityManager::class.java)?.unregisterNetworkCallback(networkCallback) }
         running = false
         instance = null
         super.onDestroy()
@@ -90,6 +105,11 @@ class MeshForegroundService : Service() {
         refreshNotification()
     }
 
+    fun setGateway(isGateway: Boolean) {
+        gateway = isGateway
+        refreshNotification()
+    }
+
     fun updateStatus(peers: Int, carried: Int) {
         this.peers = peers
         this.carried = carried
@@ -104,10 +124,11 @@ class MeshForegroundService : Service() {
     private fun buildNotification(): Notification {
         val problems = lastProblems ?: MeshHealth.problems(this)
         val blocking = problems.filter(MeshHealth::isBlocking)
+        val gw = if (gateway) " · Gateway: online to HQ" else ""
         val (title, text) = when {
-            blocking.isNotEmpty() -> "Relaying paused" to "${blocking.first()}. Tap to fix."
-            peers == 0 -> "Emergency Mesh active" to "Looking for nearby phones · carrying $carried message(s)"
-            else -> "Emergency Mesh active" to "$peers phone(s) connected · carrying $carried message(s)"
+            blocking.isNotEmpty() -> "Relaying paused" to "${blocking.first()}. Tap to fix.$gw"
+            peers == 0 -> "Emergency Mesh active" to "Looking for nearby phones · carrying $carried message(s)$gw"
+            else -> "Emergency Mesh active" to "$peers phone(s) connected · carrying $carried message(s)$gw"
         }
         return NotificationCompat.Builder(this, MeshHealth.CHANNEL_STATUS)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)

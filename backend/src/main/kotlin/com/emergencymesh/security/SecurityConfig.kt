@@ -15,10 +15,12 @@ import org.springframework.security.web.SecurityFilterChain
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter
 
 /**
+ * - GET /api/health: public (gateway detection, FR-8).
  * - POST /api/messages: gateway phones, via X-API-Key (ROLE_GATEWAY).
  * - Everything else under /api: responders, via HTTP Basic (ROLE_RESPONDER).
  *   Incident data contains victims' locations, so it is never public (SRS 5.3).
- * - Anything else (dashboard page, H2 console in dev): open.
+ * - Anything else (dashboard page, H2 console in dev): open. The dashboard
+ *   page itself holds no data; it logs in to fetch incidents.
  */
 @Configuration
 class SecurityConfig {
@@ -47,6 +49,7 @@ class SecurityConfig {
 			.addFilterBefore(ApiKeyFilter(apiKeys), BasicAuthenticationFilter::class.java)
 			.httpBasic { }
 			.authorizeHttpRequests {
+				it.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
 				it.requestMatchers(HttpMethod.POST, "/api/messages").hasRole("GATEWAY")
 				it.requestMatchers("/api/**").hasRole("RESPONDER")
 				it.anyRequest().permitAll()

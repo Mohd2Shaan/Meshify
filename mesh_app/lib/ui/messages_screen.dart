@@ -115,6 +115,7 @@ class _StatusChip extends StatelessWidget {
       MessageStatus.relayed => Colors.teal,
       MessageStatus.uploaded => Colors.green,
       MessageStatus.expired => Colors.grey,
+      MessageStatus.rejected => Colors.brown,
     };
     return Chip(
       label: Text(status.name, style: const TextStyle(color: Colors.white, fontSize: 12)),
