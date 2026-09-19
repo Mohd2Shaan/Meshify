@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../config.dart';
 import '../crypto/message_crypto.dart';
+import '../mesh/mesh_controller.dart';
 import '../mesh/nearby_service.dart';
 import '../mesh/relay_manager.dart';
 
@@ -19,6 +20,7 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> {
   @override
   Widget build(BuildContext context) {
     final mesh = context.watch<NearbyService>();
+    final controller = context.watch<MeshController>();
     final relay = context.watch<RelayManager>();
     final config = context.read<MeshConfig>();
     final crypto = context.read<MessageCrypto>();
@@ -32,11 +34,14 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> {
             child: Column(children: [
               SwitchListTile(
                 title: Text('Mesh active · this phone: ${mesh.localId}'),
-                subtitle: Text(mesh.isRunning
-                    ? 'Advertising + discovering · crypto: ${crypto.mode}'
-                    : 'Off: this phone is invisible and relays nothing'),
-                value: mesh.isRunning,
-                onChanged: (on) => on ? mesh.start() : mesh.stop(),
+                subtitle: Text(switch ((controller.enabled, mesh.isRunning)) {
+                  (false, _) => 'Off: this phone is invisible and relays nothing',
+                  (true, true) => 'Relaying, also in the background · crypto: ${crypto.mode}',
+                  (true, false) =>
+                    'Paused: ${controller.health.problems.firstOrNull ?? 'starting…'}',
+                }),
+                value: controller.enabled,
+                onChanged: controller.setEnabled,
               ),
             ]),
           ),

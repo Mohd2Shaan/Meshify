@@ -93,6 +93,22 @@ class AppDatabase extends _$AppDatabase {
     return id;
   }
 
+  Future<String?> getSetting(String key) async {
+    final row = await (select(appSettings)..where((s) => s.key.equals(key)))
+        .getSingleOrNull();
+    return row?.value;
+  }
+
+  /// Stores [value], or deletes the key when [value] is null.
+  Future<void> setSetting(String key, String? value) async {
+    if (value == null) {
+      await (delete(appSettings)..where((s) => s.key.equals(key))).go();
+    } else {
+      await into(appSettings)
+          .insertOnConflictUpdate(AppSettingsCompanion.insert(key: key, value: value));
+    }
+  }
+
   // ---- D1 Message Store ------------------------------------------------------
 
   Future<void> insertMessage(MessagesCompanion m) => into(messages).insert(m);

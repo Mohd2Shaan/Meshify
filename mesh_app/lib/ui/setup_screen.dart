@@ -1,40 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:provider/provider.dart';
 
+import '../mesh/mesh_controller.dart';
 import '../mesh/mesh_permissions.dart';
+import '../services/background_service.dart';
 import 'home_screen.dart';
 
-/// Shows the home screen once every mesh permission is granted and Location
-/// is on. Otherwise shows the setup checklist.
-class StartupGate extends StatefulWidget {
+/// Shows the home screen once every mesh permission is granted. Otherwise
+/// shows the setup checklist. Re-checked on every app resume by MeshController.
+class StartupGate extends StatelessWidget {
   const StartupGate({super.key});
 
   @override
-  State<StartupGate> createState() => _StartupGateState();
-}
-
-class _StartupGateState extends State<StartupGate> {
-  bool? _ready;
-
-  @override
-  void initState() {
-    super.initState();
-    _check();
-  }
-
-  Future<void> _check() async {
-    final ok = MeshPermissions.allGranted(await MeshPermissions.check()) &&
-        await MeshPermissions.locationServiceOn();
-    if (mounted) setState(() => _ready = ok);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return switch (_ready) {
-      null => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      true => const HomeScreen(),
-      false => SetupScreen(onReady: () => setState(() => _ready = true)),
-    };
+    final mesh = context.watch<MeshController>();
+    return mesh.permissionsOk
+        ? const HomeScreen()
+        : SetupScreen(onReady: mesh.refresh);
   }
 }
 
@@ -42,7 +25,7 @@ class _StartupGateState extends State<StartupGate> {
 class SetupScreen extends StatefulWidget {
   const SetupScreen({super.key, required this.onReady});
 
-  final VoidCallback onReady;
+  final Future<void> Function() onReady;
 
   @override
   State<SetupScreen> createState() => _SetupScreenState();
@@ -51,6 +34,7 @@ class SetupScreen extends StatefulWidget {
 class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
   Map<Permission, PermissionStatus> _statuses = {};
   bool _locationOn = false;
+  bool _batteryOk = true;
 
   @override
   void initState() {
@@ -72,12 +56,18 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
   }
 
   Future<void> _refresh() async {
-    final statuses = await MeshPermissions.check();
+    final statuses = {
+      ...await MeshPermissions.check(),
+      for (final p in MeshPermissions.recommended) p: await p.status,
+    };
     final locationOn = await MeshPermissions.locationServiceOn();
+    if (!mounted) return;
+    final batteryOk = await context.read<BackgroundService>().isIgnoringBatteryOptimizations();
     if (!mounted) return;
     setState(() {
       _statuses = statuses;
       _locationOn = locationOn;
+      _batteryOk = batteryOk;
     });
   }
 
@@ -88,7 +78,9 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    final ready = _statuses.isNotEmpty && MeshPermissions.allGranted(_statuses) && _locationOn;
+    final ready = _statuses.isNotEmpty &&
+        MeshPermissions.required.every((p) => _statuses[p]?.isGranted ?? false) &&
+        _locationOn;
     return Scaffold(
       appBar: AppBar(title: const Text('Emergency Mesh: Setup')),
       body: ListView(
@@ -97,10 +89,11 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
           const Text(
             'This app passes emergency alerts between phones over Bluetooth '
             'and Wi-Fi, with no internet needed. It needs these permissions to find '
-            'nearby phones and attach your location.',
+            'nearby phones and attach your location. Once set up it keeps relaying '
+            'in the background, even with the screen off.',
           ),
           const SizedBox(height: 8),
-          for (final p in MeshPermissions.required)
+          for (final p in [...MeshPermissions.required, ...MeshPermissions.recommended])
             _StatusTile(
               label: MeshPermissions.labels[p]!,
               ok: _statuses[p]?.isGranted ?? false,
@@ -110,6 +103,19 @@ class _SetupScreenState extends State<SetupScreen> with WidgetsBindingObserver {
             label: 'Location service switched on',
             ok: _locationOn,
             detail: _locationOn ? 'on' : 'off',
+          ),
+          ListTile(
+            leading: Icon(_batteryOk ? Icons.check_circle : Icons.battery_alert,
+                color: _batteryOk ? Colors.green : Colors.orange),
+            title: const Text('Keep relaying in the background'),
+            subtitle: const Text('Recommended: stops the phone killing the relay to save battery'),
+            trailing: _batteryOk
+                ? const Text('allowed')
+                : TextButton(
+                    onPressed: () =>
+                        context.read<BackgroundService>().requestIgnoreBatteryOptimizations(),
+                    child: const Text('Allow'),
+                  ),
           ),
           const SizedBox(height: 16),
           if (!ready)

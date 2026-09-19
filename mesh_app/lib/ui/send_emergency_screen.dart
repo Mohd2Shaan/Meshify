@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../config.dart';
+import '../mesh/mesh_controller.dart';
 import '../mesh/nearby_service.dart';
 import '../models/emergency_message.dart';
 import '../services/emergency_sender.dart';
@@ -17,6 +18,7 @@ class SendEmergencyScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final peers = context.watch<NearbyService>().connectedPeers.length;
+    final controller = context.watch<MeshController>();
     return Scaffold(
       appBar: AppBar(
         title: const Text('Send Emergency'),
@@ -33,7 +35,10 @@ class SendEmergencyScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _MeshStatusBanner(peers: peers),
+            if (controller.paused)
+              _ProblemBanner(problems: controller.health.problems)
+            else
+              _MeshStatusBanner(peers: peers),
             const SizedBox(height: 16),
             Expanded(
               child: GridView.count(
@@ -134,6 +139,25 @@ class _MeshStatusBanner extends StatelessWidget {
         subtitle: Text(ok
             ? 'Alerts you send will start relaying immediately'
             : 'You can still send: the alert is kept and passed on later'),
+      ),
+    );
+  }
+}
+
+class _ProblemBanner extends StatelessWidget {
+  const _ProblemBanner({required this.problems});
+
+  final List<String> problems;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.red.shade50,
+      child: ListTile(
+        leading: const Icon(Icons.error, color: Colors.red),
+        title: const Text('Relaying is paused'),
+        subtitle: Text('${problems.join('\n')}\n'
+            'Alerts you send are saved and will go out once this is fixed.'),
       ),
     );
   }

@@ -4,12 +4,17 @@ import 'package:provider/provider.dart';
 import 'config.dart';
 import 'crypto/message_crypto.dart';
 import 'db/app_database.dart';
+import 'mesh/mesh_controller.dart';
 import 'mesh/nearby_service.dart';
 import 'mesh/relay_manager.dart';
+import 'services/background_service.dart';
 import 'services/emergency_sender.dart';
 import 'services/location_service.dart';
 import 'ui/setup_screen.dart';
 
+/// Runs once per app process, in the engine MeshApplication.kt creates. That
+/// can be with no screen at all (after a reboot), so the mesh is started
+/// here and not from a widget.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -19,6 +24,8 @@ Future<void> main() async {
   final MessageCrypto crypto = PlaintextCrypto(); // Phase 5: libsodium sealed box
   final nearby = NearbyService(localId: deviceId);
   final relay = RelayManager(db: db, transport: nearby, config: config)..start();
+  final background = BackgroundService();
+  final controller = MeshController(db: db, nearby: nearby, service: background);
   final sender = EmergencySender(
     db: db,
     relay: relay,
@@ -27,6 +34,7 @@ Future<void> main() async {
     deviceId: deviceId,
     config: config,
   );
+  await controller.init();
 
   runApp(
     MultiProvider(
@@ -35,8 +43,10 @@ Future<void> main() async {
         Provider.value(value: config),
         Provider.value(value: crypto),
         Provider.value(value: sender),
+        Provider.value(value: background),
         ChangeNotifierProvider.value(value: nearby),
         ChangeNotifierProvider.value(value: relay),
+        ChangeNotifierProvider.value(value: controller),
       ],
       child: const MeshApp(),
     ),

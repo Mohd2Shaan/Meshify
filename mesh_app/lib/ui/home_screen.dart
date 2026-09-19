@@ -17,14 +17,6 @@ class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
 
   @override
-  void initState() {
-    super.initState();
-    // Relay participants are passive (SRS 2.3): the mesh runs as soon as the
-    // app is open, with nothing to switch on.
-    context.read<NearbyService>().start();
-  }
-
-  @override
   Widget build(BuildContext context) {
     final deviceId = context.read<NearbyService>().localId;
     return Scaffold(

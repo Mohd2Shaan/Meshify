@@ -1,0 +1,64 @@
+import 'package:flutter/services.dart';
+
+class MeshHealthStatus {
+  const MeshHealthStatus(this.ok, this.problems);
+
+  /// False when something blocks relaying (permission, Bluetooth, Location).
+  final bool ok;
+
+  /// Human-readable, e.g. "Bluetooth is off". May include non-blocking
+  /// warnings such as Wi-Fi being off.
+  final List<String> problems;
+
+  static MeshHealthStatus fromMap(Object? raw) {
+    final m = (raw as Map?) ?? const {};
+    return MeshHealthStatus(
+      m['ok'] as bool? ?? true,
+      [for (final p in (m['problems'] as List?) ?? const []) p as String],
+    );
+  }
+}
+
+/// Dart side of the Android foreground service (MeshForegroundService.kt)
+/// that keeps relaying alive in the background (SRS 2.3).
+class BackgroundService {
+  BackgroundService() {
+    _channel.setMethodCallHandler((call) async {
+      if (call.method == 'healthChanged') {
+        onHealthChanged?.call(MeshHealthStatus.fromMap(call.arguments));
+      }
+    });
+  }
+
+  static const _channel = MethodChannel('emergency_mesh/service');
+
+  /// Called when Bluetooth / Location / Wi-Fi is switched on or off.
+  void Function(MeshHealthStatus)? onHealthChanged;
+
+  /// Starts the service (idempotent). False if Android refused.
+  Future<bool> start() async => await _call<bool>('start') ?? false;
+
+  Future<void> stop() => _call('stop');
+
+  Future<MeshHealthStatus> health() async =>
+      MeshHealthStatus.fromMap(await _call<Map>('health'));
+
+  Future<void> updateStatus({required int peers, required int carried}) =>
+      _call('updateStatus', {'peers': peers, 'carried': carried});
+
+  Future<bool> isIgnoringBatteryOptimizations() async =>
+      await _call<bool>('isIgnoringBatteryOptimizations') ?? true;
+
+  Future<void> requestIgnoreBatteryOptimizations() =>
+      _call('requestIgnoreBatteryOptimizations');
+
+  /// Swallows MissingPluginException so widget tests and non-Android
+  /// platforms don't crash.
+  Future<T?> _call<T>(String method, [Object? args]) async {
+    try {
+      return await _channel.invokeMethod<T>(method, args);
+    } on MissingPluginException {
+      return null;
+    }
+  }
+}

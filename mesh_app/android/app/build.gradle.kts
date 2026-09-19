@@ -40,3 +40,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    // PermissionWatchWorker: periodic check that survives the app being killed
+    implementation("androidx.work:work-runtime-ktx:2.11.2")
+}
