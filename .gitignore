@@ -10,3 +10,6 @@ desktop.ini
 *.env
 .env*
 secrets/
+
+# Gradle output inside the Flutter android folder
+mesh_app/android/build/

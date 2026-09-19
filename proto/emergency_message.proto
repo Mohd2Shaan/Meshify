@@ -1,0 +1,40 @@
+// Shared wire format for the Emergency Mesh system (SRS 4.7).
+// Compiled by both mesh_app (Dart) and backend (Kotlin/Java) so the two
+// sides can never drift apart.
+syntax = "proto3";
+
+package emergencymesh;
+
+option java_package = "com.emergencymesh.proto";
+option java_multiple_files = true;
+
+// FR-1 need types. STATUS is the routine, lowest-priority type (FR-7).
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MEDICAL = 1;
+  TRAPPED = 2;
+  SUPPLIES = 3;
+  STATUS = 4;
+}
+
+// The packet that travels phone-to-phone (FR-4).
+//
+// Everything here except sealed_payload is routing metadata that relay
+// phones must read to deduplicate (FR-5), expire (FR-6) and prioritise
+// (FR-7). The actual emergency content lives only inside sealed_payload.
+message MeshPacket {
+  string message_id = 1;
+  string sender_device_id = 2;
+  MessageType type = 3;
+  int64 timestamp_ms = 4;     // creation time, Unix epoch millis
+  int64 ttl_expiry_ms = 5;    // FR-6: drop after this instant
+  int32 hop_count = 6;        // FR-6: incremented on every relay
+  bytes sealed_payload = 7;   // FR-3: encrypted EmergencyPayload
+}
+
+// The private content, encrypted so only Headquarters can read it (FR-3).
+message EmergencyPayload {
+  double latitude = 1;
+  double longitude = 2;
+  string note = 3;            // optional short note (SRS 3.3)
+}
