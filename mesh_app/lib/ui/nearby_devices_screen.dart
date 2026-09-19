@@ -1,16 +1,13 @@
-import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../config.dart';
+import '../crypto/message_crypto.dart';
 import '../mesh/nearby_service.dart';
+import '../mesh/relay_manager.dart';
 
-/// Nearby Devices screen (SRS 3.3): active mesh connections.
-///
-/// Phase 1 also uses it as the raw-connectivity test bench: send a plain
-/// string to every connected phone and show what arrives.
+/// Nearby Devices screen (SRS 3.3): active mesh connections, relay
+/// statistics, and the relay/connection logs used as test evidence.
 class NearbyDevicesScreen extends StatefulWidget {
   const NearbyDevicesScreen({super.key});
 
@@ -19,97 +16,104 @@ class NearbyDevicesScreen extends StatefulWidget {
 }
 
 class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> {
-  final _text = TextEditingController(text: 'hello');
-  final List<String> _received = [];
-  StreamSubscription<ReceivedPayload>? _sub;
-
-  @override
-  void initState() {
-    super.initState();
-    _sub = context.read<NearbyService>().incoming.listen((p) {
-      setState(() => _received.insert(
-          0, '${p.senderName}: ${utf8.decode(p.bytes, allowMalformed: true)}'));
-    });
-  }
-
-  @override
-  void dispose() {
-    _sub?.cancel();
-    _text.dispose();
-    super.dispose();
-  }
-
-  Future<void> _send(NearbyService mesh) async {
-    final msg = _text.text.trim();
-    if (msg.isEmpty) return;
-    final n = await mesh.broadcast(Uint8List.fromList(utf8.encode(msg)));
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Sent to $n peer${n == 1 ? '' : 's'}')));
-  }
-
   @override
   Widget build(BuildContext context) {
     final mesh = context.watch<NearbyService>();
-    final connected = mesh.connectedPeers;
+    final relay = context.watch<RelayManager>();
+    final config = context.read<MeshConfig>();
+    final crypto = context.read<MessageCrypto>();
+    final s = relay.stats;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Nearby Devices'),
-        actions: [
-          Center(
-              child: Padding(
-            padding: const EdgeInsets.only(right: 12),
-            child: Text('Me: ${mesh.localId}'),
-          )),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Mesh')),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          SwitchListTile(
-            title: const Text('Mesh active'),
-            subtitle: Text(mesh.isRunning
-                ? 'Advertising + discovering'
-                : 'Off: this phone is invisible'),
-            value: mesh.isRunning,
-            onChanged: (on) => on ? mesh.start() : mesh.stop(),
+          Card(
+            child: Column(children: [
+              SwitchListTile(
+                title: Text('Mesh active · this phone: ${mesh.localId}'),
+                subtitle: Text(mesh.isRunning
+                    ? 'Advertising + discovering · crypto: ${crypto.mode}'
+                    : 'Off: this phone is invisible and relays nothing'),
+                value: mesh.isRunning,
+                onChanged: (on) => on ? mesh.start() : mesh.stop(),
+              ),
+            ]),
           ),
           const _Header('Peers'),
-          if (mesh.peers.isEmpty)
-            const ListTile(title: Text('No peers yet')),
+          if (mesh.peers.isEmpty) const ListTile(title: Text('No peers yet')),
           for (final p in mesh.peers)
             ListTile(
               dense: true,
               leading: Icon(
-                p.state == PeerState.connected
-                    ? Icons.link
-                    : Icons.bluetooth_searching,
+                p.state == PeerState.connected ? Icons.link : Icons.bluetooth_searching,
                 color: p.state == PeerState.connected ? Colors.green : null,
               ),
               title: Text(p.name),
               trailing: Text(p.state.name),
             ),
-          const _Header('Send text to all connected peers'),
-          Row(children: [
-            Expanded(child: TextField(controller: _text)),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: connected.isEmpty ? null : () => _send(mesh),
-              child: const Text('Send'),
-            ),
+          const _Header('Relay statistics'),
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            _Stat('received', s.received),
+            _Stat('forwarded', s.forwarded),
+            _Stat('duplicates dropped', s.duplicates),
+            _Stat('expired dropped', s.expiredDropped + s.expiredInStore),
+            _Stat('hop-limit dropped', s.hopLimitDropped),
+            _Stat('malformed', s.malformed),
+            _Stat('queue', relay.queueLength),
           ]),
-          const _Header('Received'),
-          if (_received.isEmpty)
-            const ListTile(title: Text('Nothing received yet')),
-          for (final r in _received) ListTile(dense: true, title: Text(r)),
+          const _Header('Test settings'),
+          SwitchListTile(
+            dense: true,
+            title: const Text('Short TTL (2 min) for new messages'),
+            subtitle: const Text('FR-6 test: watch a message expire and stop relaying'),
+            value: config.defaultTtl == MeshConfig.testTtl,
+            onChanged: (on) => setState(() =>
+                config.defaultTtl = on ? MeshConfig.testTtl : MeshConfig.normalTtl),
+          ),
+          ListTile(
+            dense: true,
+            title: const Text('Max hops'),
+            subtitle: const Text('FR-6: messages stop being forwarded after this many hops'),
+            trailing: DropdownButton<int>(
+              value: config.maxHops,
+              items: const [1, 2, 3, 5, 10]
+                  .map((h) => DropdownMenuItem(value: h, child: Text('$h')))
+                  .toList(),
+              onChanged: (h) => setState(() => config.maxHops = h!),
+            ),
+          ),
+          const _Header('Relay log'),
+          if (relay.log.isEmpty) const Text('Nothing relayed yet'),
+          for (final line in relay.log.take(100)) _LogLine(line),
           const _Header('Connection log'),
-          for (final line in mesh.log)
-            Text(line,
-                style:
-                    const TextStyle(fontFamily: 'monospace', fontSize: 12)),
+          for (final line in mesh.log.take(100)) _LogLine(line),
         ],
       ),
     );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat(this.label, this.value);
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Chip(label: Text('$label: $value'), visualDensity: VisualDensity.compact);
+  }
+}
+
+class _LogLine extends StatelessWidget {
+  const _LogLine(this.line);
+
+  final String line;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(line, style: const TextStyle(fontFamily: 'monospace', fontSize: 11));
   }
 }
 

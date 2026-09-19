@@ -4,6 +4,10 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:nearby_connections/nearby_connections.dart';
 
+import 'mesh_transport.dart';
+
+export 'mesh_transport.dart';
+
 /// Service ID shared by every phone running the app. Nearby only connects
 /// advertisers and discoverers that use the same ID.
 const String kServiceId = 'com.emergencymesh.mesh_app';
@@ -18,31 +22,24 @@ class Peer {
   PeerState state;
 }
 
-class ReceivedPayload {
-  ReceivedPayload(this.endpointId, this.senderName, this.bytes);
-
-  final String endpointId;
-  final String senderName;
-  final Uint8List bytes;
-}
-
 /// Wraps the nearby_connections plugin (FR-4 transport layer).
 ///
 /// Every phone advertises and discovers at the same time using P2P_CLUSTER
 /// (many-to-many), connects automatically to every peer it finds, and exposes
 /// raw bytes in and out. It knows nothing about message formats. Relay logic
 /// sits on top of it in relay_manager.dart.
-class NearbyService extends ChangeNotifier {
+class NearbyService extends ChangeNotifier implements MeshTransport {
   NearbyService({String? localId}) : localId = localId ?? _randomId();
 
-  /// This phone's name on the mesh. Phase 2 replaces this with the persisted
-  /// Device.deviceId from the local database.
+  /// This phone's Device.deviceId, advertised as its Nearby nickname.
+  @override
   final String localId;
 
   final Nearby _nearby = Nearby();
   final Map<String, Peer> _peers = {};
   final List<String> _log = [];
   final _incoming = StreamController<ReceivedPayload>.broadcast();
+  final _peerConnected = StreamController<MeshPeer>.broadcast();
   bool _running = false;
   Timer? _restartTimer;
 
@@ -52,7 +49,15 @@ class NearbyService extends ChangeNotifier {
       _peers.values.where((p) => p.state == PeerState.connected).toList();
   List<String> get log => List.unmodifiable(_log);
 
+  @override
+  List<MeshPeer> get connectedMeshPeers =>
+      [for (final p in connectedPeers) MeshPeer(p.endpointId, p.name)];
+
+  @override
+  Stream<MeshPeer> get peerConnected => _peerConnected.stream;
+
   /// Every bytes payload received from any connected peer.
+  @override
   Stream<ReceivedPayload> get incoming => _incoming.stream;
 
   Future<void> start() async {
@@ -76,23 +81,13 @@ class NearbyService extends ChangeNotifier {
   }
 
   /// Sends [bytes] to one connected peer.
+  @override
   Future<void> send(String endpointId, Uint8List bytes) async {
     try {
       await _nearby.sendBytesPayload(endpointId, bytes);
     } catch (e) {
       _addLog('Send to ${_nameOf(endpointId)} failed: $e');
     }
-  }
-
-  /// Sends [bytes] to every connected peer, optionally skipping one
-  /// (the peer a relayed message just came from).
-  Future<int> broadcast(Uint8List bytes, {String? exceptEndpointId}) async {
-    final targets =
-        connectedPeers.where((p) => p.endpointId != exceptEndpointId).toList();
-    for (final p in targets) {
-      await send(p.endpointId, bytes);
-    }
-    return targets.length;
   }
 
   Future<void> _startAdvertising() async {
@@ -186,6 +181,7 @@ class NearbyService extends ChangeNotifier {
     if (status == Status.CONNECTED) {
       peer?.state = PeerState.connected;
       _addLog('Connected to ${peer?.name ?? endpointId}');
+      if (peer != null) _peerConnected.add(MeshPeer(endpointId, peer.name));
     } else {
       _peers.remove(endpointId);
       _addLog('Connection to ${peer?.name ?? endpointId}: ${status.name}');
@@ -233,6 +229,7 @@ class NearbyService extends ChangeNotifier {
   void dispose() {
     _restartTimer?.cancel();
     _incoming.close();
+    _peerConnected.close();
     super.dispose();
   }
 
