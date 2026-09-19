@@ -1,5 +1,6 @@
 package com.emergencymesh
 
+import com.emergencymesh.crypto.Sodium
 import com.emergencymesh.proto.EmergencyPayload
 import com.emergencymesh.repository.GatewayUploadRepository
 import org.hamcrest.Matchers.hasItem
@@ -26,9 +27,15 @@ import java.util.Base64
 import java.util.UUID
 import kotlin.test.assertEquals
 
-@SpringBootTest
+@SpringBootTest(properties = ["mesh.crypto.private-key=${ApiIntegrationTests.TEST_PRIVATE_KEY}"])
 @ActiveProfiles("dev")
 class ApiIntegrationTests {
+
+	companion object {
+		/** Test-only key (bytes 1..32). Never used outside tests. */
+		const val TEST_PRIVATE_KEY = "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA="
+		val testPublicKey: ByteArray = Sodium.publicKeyOf(Base64.getDecoder().decode(TEST_PRIVATE_KEY))
+	}
 
 	@Autowired lateinit var context: WebApplicationContext
 	@Autowired lateinit var uploads: GatewayUploadRepository
@@ -43,10 +50,12 @@ class ApiIntegrationTests {
 
 	// ---- helpers ---------------------------------------------------------------
 
+	private fun plainPayload(lat: Double = 13.0827, lon: Double = 80.2707, note: String = "") =
+		EmergencyPayload.newBuilder().setLatitude(lat).setLongitude(lon).setNote(note).build().toByteArray()
+
+	/** What a phone sends: the EmergencyPayload sealed for the backend's key (FR-3). */
 	private fun payload(lat: Double = 13.0827, lon: Double = 80.2707, note: String = "") =
-		Base64.getEncoder().encodeToString(
-			EmergencyPayload.newBuilder().setLatitude(lat).setLongitude(lon).setNote(note).build().toByteArray(),
-		)
+		Base64.getEncoder().encodeToString(Sodium.seal(plainPayload(lat, lon, note), testPublicKey))
 
 	private fun uploadJson(
 		messageId: String = UUID.randomUUID().toString(),
@@ -123,6 +132,27 @@ class ApiIntegrationTests {
 	fun `unreadable payload is a bad request`() {
 		mvc.perform(upload(uploadJson(sealedPayload = "bm90LWEtcHJvdG9idWY="))) // "not-a-protobuf"
 			.andExpect(status().isBadRequest)
+	}
+
+	@Test
+	fun `unsealed plaintext payload is rejected`() {
+		val plain = Base64.getEncoder().encodeToString(plainPayload(note = "not encrypted"))
+		mvc.perform(upload(uploadJson(sealedPayload = plain))).andExpect(status().isBadRequest)
+	}
+
+	@Test
+	fun `tampered sealed payload is rejected`() {
+		val sealed = Sodium.seal(plainPayload(), testPublicKey)
+		sealed[sealed.size - 1] = (sealed[sealed.size - 1].toInt() xor 1).toByte()
+		mvc.perform(upload(uploadJson(sealedPayload = Base64.getEncoder().encodeToString(sealed))))
+			.andExpect(status().isBadRequest)
+	}
+
+	@Test
+	fun `payload sealed for a different key is rejected`() {
+		val (otherPk, _) = Sodium.newKeyPair()
+		val sealed = Base64.getEncoder().encodeToString(Sodium.seal(plainPayload(), otherPk))
+		mvc.perform(upload(uploadJson(sealedPayload = sealed))).andExpect(status().isBadRequest)
 	}
 
 	@Test

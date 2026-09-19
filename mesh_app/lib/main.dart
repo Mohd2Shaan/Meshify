@@ -21,7 +21,7 @@ Future<void> main() async {
   final db = AppDatabase();
   final deviceId = await db.getOrCreateDeviceId();
   final config = MeshConfig();
-  final MessageCrypto crypto = PlaintextCrypto(); // Phase 5: libsodium sealed box
+  final MessageCrypto crypto = await SealedBoxCrypto.create(); // FR-3
   final nearby = NearbyService(localId: deviceId);
   final relay = RelayManager(db: db, transport: nearby, config: config)..start();
   final background = BackgroundService();

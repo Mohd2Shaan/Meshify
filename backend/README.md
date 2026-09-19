@@ -7,6 +7,11 @@ Receives messages from gateway phones and serves the responder dashboard
 ## Run
 
 ```bash
+# Once, before first run: create the encryption keypair (FR-3).
+# Writes secrets/mesh-keys.properties (PRIVATE, git-ignored) and
+# ../mesh_app/lib/crypto/backend_public_key.dart (PUBLIC, compiled into the app).
+./gradlew genKeys
+
 # No database needed: in-memory H2, wiped on restart
 ./gradlew bootRun --args='--spring.profiles.active=dev'
 
@@ -29,7 +34,9 @@ Server runs on `http://localhost:8080`. In dev, the H2 console is at
 | PATCH | `/api/incidents/{id}/status` `{"status": "ACKNOWLEDGED"}` | FR-13 | responder login |
 | GET | `/api/teams` | FR-12 | responder login |
 
-Sample requests: `requests.http`. The same upload as curl (importable into Postman):
+Sample requests: `requests.http`. `sealedPayload` must be sealed for *your*
+key: use the value from `secrets/sample-sealed-payload.txt` (written by
+`genKeys`). The same upload as curl (importable into Postman):
 
 ```bash
 curl -X POST http://localhost:8080/api/messages \
@@ -37,7 +44,7 @@ curl -X POST http://localhost:8080/api/messages \
   -d '{"messageId":"demo-001","senderDeviceId":"phone-a","gatewayDeviceId":"phone-c",
        "type":"MEDICAL","timestampMs":1790000000000,"ttlExpiryMs":4102444800000,
        "hopCount":2,"priorityScore":97.5,
-       "sealedPayload":"CSfChqdXKipAEb7BFyZTEVRAGhRMZWcgaW5qdXJ5LCAyIHBlb3BsZQ=="}'
+       "sealedPayload":"<contents of secrets/sample-sealed-payload.txt>"}'
 
 curl -u responder:responder123 http://localhost:8080/api/incidents
 ```
@@ -62,7 +69,26 @@ network errors as retry later.
 | `DB_URL` / `DB_USER` / `DB_PASSWORD` | `localhost:5432/emergency_mesh`, `postgres`, `postgres` | PostgreSQL |
 | `MESH_GATEWAY_API_KEYS` | `dev-gateway-key` | Comma-separated gateway keys |
 | `MESH_RESPONDER_USER` / `MESH_RESPONDER_PASSWORD` | `responder` / `responder123` | Dashboard login |
-| `MESH_CRYPTO_MODE` | `plaintext` | Becomes `sealed` in Phase 5 |
+| `MESH_PRIVATE_KEY` | from `secrets/mesh-keys.properties` | Base64 X25519 private key |
+| `MESH_CRYPTO_MODE` | `sealed` | `plaintext` only for debugging |
+
+## Encryption (FR-3)
+
+Phones seal each `EmergencyPayload` (GPS + note) with **libsodium
+`crypto_box_seal`** for the backend's X25519 public key. That is an ephemeral
+key exchange plus XSalsa20-Poly1305, so it is authenticated and tamper-evident.
+Only the private key in `secrets/` can open it. Relay phones and the network
+see only random-looking bytes plus the routing header.
+
+- The backend uses `lazysodium-java` 5.1.4 (5.2 needs Java 21). The app uses
+  `sodium_libs`. Both are libsodium, with an identical format.
+- On startup the log shows `Public key (must match the app)`. Compare it with
+  `mesh_app/lib/crypto/backend_public_key.dart`.
+- **Back up `secrets/mesh-keys.properties`.** If it's lost, messages already
+  sealed on phones can never be opened, and you'd need `genKeys --force` and
+  a reinstall on every phone.
+- Tampered payloads, payloads sealed for another key and unsealed plaintext
+  are all rejected with 400 (see `ApiIntegrationTests`).
 
 ## Design notes
 

@@ -29,6 +29,8 @@ dependencies {
 	implementation("org.jetbrains.kotlin:kotlin-reflect")
 	implementation("tools.jackson.module:jackson-module-kotlin")
 	implementation("com.google.protobuf:protobuf-java:4.36.2")
+	// FR-3: libsodium sealed boxes (same library as the app's sodium_libs)
+	implementation("com.goterl:lazysodium-java:5.1.4") // 5.2 needs Java 21
 	runtimeOnly("com.h2database:h2")
 	runtimeOnly("org.postgresql:postgresql")
 	testImplementation("org.springframework.boot:spring-boot-starter-data-jpa-test")
@@ -68,4 +70,19 @@ allOpen {
 
 tasks.withType<Test> {
 	useJUnitPlatform()
+}
+
+// KeyGen.kt has its own main(), so name the server's explicitly.
+springBoot {
+	mainClass.set("com.emergencymesh.EmergencyMeshApplicationKt")
+}
+
+// ./gradlew genKeys: creates the backend keypair (FR-3). Private key goes to
+// secrets/ (git-ignored); public key goes into the app's source.
+tasks.register<JavaExec>("genKeys") {
+	group = "emergency mesh"
+	description = "Generate the X25519 keypair for sealed-box encryption"
+	classpath = sourceSets["main"].runtimeClasspath
+	mainClass.set("com.emergencymesh.crypto.KeyGenKt")
+	workingDir = projectDir
 }

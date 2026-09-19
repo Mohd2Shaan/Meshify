@@ -7,7 +7,8 @@
 
 ### FR-9 / FR-10: gateway uploads a message (creates an incident)
 # sealedPayload = EmergencyPayload{lat 13.0827, lon 80.2707, note "Leg injury, 2 people"}
-# (plaintext mode; from Phase 5 this will be a libsodium sealed box)
+# sealed for YOUR backend key: paste the contents of secrets/sample-sealed-payload.txt
+# (written by ./gradlew genKeys). A payload sealed for another key is rejected (400).
 POST {{base}}/api/messages
 Content-Type: application/json
 X-API-Key: dev-gateway-key
@@ -21,7 +22,7 @@ X-API-Key: dev-gateway-key
   "ttlExpiryMs": 4102444800000,
   "hopCount": 2,
   "priorityScore": 97.5,
-  "sealedPayload": "CSfChqdXKipAEb7BFyZTEVRAGhRMZWcgaW5qdXJ5LCAyIHBlb3BsZQ=="
+  "sealedPayload": "PASTE-FROM-secrets/sample-sealed-payload.txt"
 }
 
 ### FR-11: list incidents (optionally ?status=PENDING&status=ACKNOWLEDGED)
