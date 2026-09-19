@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Emergency Mesh · Responder Dashboard</title>
+  <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"
+        integrity="sha512-h9FcoyWjHcOcmEVkxOfTLnmZFWIH0iZhZT1H2TbOq55xssQGEJHEaIm+PgoUaZbRvQTNTluNOEfb1ZRy6D3BOw=="
+        crossorigin="anonymous">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='4' fill='%23b71c1c'/%3E%3Crect x='4' y='4' width='8' height='8' rx='1' fill='%23fff'/%3E%3C/svg%3E">
+</head>
+<body>
+  <!-- FR-11 to FR-13. Served by the backend at http://<host>:8080/ -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <div>
+        <h1>Emergency Mesh</h1>
+        <p>Responder dashboard</p>
+      </div>
+    </div>
+    <div class="stats" id="stats" aria-live="polite"></div>
+    <div class="controls">
+      <label class="toggle"><input type="checkbox" id="show-resolved"> Show resolved</label>
+      <span class="updated" id="updated">Not loaded</span>
+      <button class="ghost" id="logout" hidden>Log out</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <aside class="sidebar">
+      <div class="list-head">
+        <h2>Incidents</h2>
+        <select id="filter-severity" aria-label="Filter by severity">
+          <option value="">All severities</option>
+          <option value="HIGH">High only</option>
+          <option value="MEDIUM">Medium only</option>
+          <option value="LOW">Low only</option>
+        </select>
+      </div>
+      <ol class="incident-list" id="list"></ol>
+      <p class="empty" id="empty" hidden>No incidents yet. They appear here as gateway phones upload them.</p>
+    </aside>
+
+    <section class="map-wrap">
+      <div id="map" role="application" aria-label="Incident map"></div>
+      <div class="legend" aria-label="Legend">
+        <span><i class="dot HIGH"></i>High (Medical, Trapped)</span>
+        <span><i class="dot MEDIUM"></i>Medium (Supplies)</span>
+        <span><i class="dot LOW"></i>Low (Status)</span>
+        <span><i class="dot RESOLVED"></i>Resolved</span>
+      </div>
+      <div class="detail" id="detail" hidden></div>
+    </section>
+  </main>
+
+  <div class="toast-stack" id="toasts" aria-live="assertive"></div>
+
+  <div class="login" id="login" hidden>
+    <form class="login-card" id="login-form">
+      <h2>Responder login</h2>
+      <p>Incident data includes victims' locations, so it needs a login.</p>
+      <label>Username <input id="login-user" autocomplete="username" required></label>
+      <label>Password <input id="login-pass" type="password" autocomplete="current-password" required></label>
+      <p class="error" id="login-error" hidden></p>
+      <button type="submit">Log in</button>
+    </form>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"
+          integrity="sha512-puJW3E/qXDqYp9IfhAI54BJEaWIfloJ7JWs7OeD5i6ruC9JZL1gERT1wjtwXFlh7CjE7ZJ+/vcRZRkIYIb6p4g=="
+          crossorigin="anonymous"></script>
+  <script src="app.js"></script>
+</body>
+</html>

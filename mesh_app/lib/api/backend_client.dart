@@ -5,7 +5,7 @@ import 'package:dio/dio.dart';
 import '../db/app_database.dart';
 
 /// Where the gateway uploads to. Editable in the Mesh tab, with defaults from
-///   flutter run --dart-define=BACKEND_URL=http://192.168.1.10:8080
+///   flutter run --dart-define=BACKEND_URL=http://192.168.137.1:8080
 ///              --dart-define=GATEWAY_API_KEY=dev-gateway-key
 class BackendSettings {
   const BackendSettings(this.baseUrl, this.apiKey);
@@ -14,7 +14,7 @@ class BackendSettings {
   final String apiKey;
 
   static const defaultUrl =
-      String.fromEnvironment('BACKEND_URL', defaultValue: 'http://192.168.1.10:8080');
+      String.fromEnvironment('BACKEND_URL', defaultValue: 'http://192.168.137.1:8080');
   static const defaultApiKey =
       String.fromEnvironment('GATEWAY_API_KEY', defaultValue: 'dev-gateway-key');
 }

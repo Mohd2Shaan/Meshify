@@ -152,7 +152,7 @@ class _GatewayCard extends StatelessWidget {
             controller: url,
             keyboardType: TextInputType.url,
             decoration: const InputDecoration(
-                labelText: 'Backend URL', hintText: 'http://192.168.1.10:8080'),
+                labelText: 'Backend URL', hintText: 'http://192.168.137.1:8080'),
           ),
           TextField(controller: key, decoration: const InputDecoration(labelText: 'Gateway API key')),
         ]),

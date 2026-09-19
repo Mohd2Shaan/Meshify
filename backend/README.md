@@ -21,13 +21,18 @@ DB_PASSWORD=yourpassword ./gradlew bootRun
 ./gradlew test        # integration tests (use H2)
 ```
 
-Server runs on `http://localhost:8080`. In dev, the H2 console is at
-`/h2-console` (JDBC URL `jdbc:h2:mem:emergency_mesh`, user `sa`).
+Server runs on `http://localhost:8080`, and the **responder dashboard** is at
+`http://localhost:8080/` (served from `../dashboard`). In dev, the H2 console is
+at `/h2-console` (JDBC URL `jdbc:h2:mem:emergency_mesh`, user `sa`).
+
+`./gradlew seedDemo` (server running) posts a few sealed incidents marked
+**[TEST]** through the real gateway API, for building and rehearsing the dashboard.
 
 ## API
 
 | Method | Endpoint | FR | Auth |
 |---|---|---|---|
+| GET | `/api/health` | FR-8 | public: gateways check reachability |
 | POST | `/api/messages` | FR-9, FR-10 | `X-API-Key` header (gateway) |
 | GET | `/api/incidents[?status=PENDING&status=...]` | FR-11 | responder login |
 | PATCH | `/api/incidents/{id}/assign` `{"teamId": "..."}` | FR-12 | responder login |
