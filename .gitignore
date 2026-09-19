@@ -1,0 +1,12 @@
+# OS / editor noise
+.DS_Store
+Thumbs.db
+desktop.ini
+~$*
+.vscode/
+.idea/
+
+# Local secrets (API keys, keypairs) - never commit these
+*.env
+.env*
+secrets/
