@@ -86,8 +86,10 @@ cd mesh_app && flutter test      # 24 tests: relay on a simulated 3-phone mesh,
 
 | Claim | Evidence |
 |---|---|
-| Multi-hop, no internet | C's Messages tab: "from A · hop 2"; the relay log on B |
+| Multi-hop, no internet | Dashboard: "Reached HQ via 2 mesh hops"; B's Mesh tab relay log: "IN Medical relayed for someone else, hop 1" |
 | Relay phones can't read content (FR-3) | B's relay log shows only random hex; the dashboard shows the note |
+| Relay privacy | B's Messages tab lists only B's own messages plus "Carrying N sealed messages for others"; its log never names the sender or the message |
+| Nothing kept forever | Expired messages, notices and relay-log rows are deleted 3 days after expiry (Mesh tab log: "CLEAN deleted …") |
 | Deduplication (FR-5) | Mesh tab counter "duplicates dropped" |
 | TTL (FR-6) | Mesh tab → Short TTL (2 min): the message turns *expired* and stops relaying |
 | Priority (FR-7) | `flutter test test/relay_manager_test.dart`: MEDICAL overtakes 6 queued STATUS; FIFO leaves it last |

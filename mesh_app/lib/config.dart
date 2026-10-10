@@ -4,6 +4,7 @@ class MeshConfig {
     this.defaultTtl = const Duration(hours: 6),
     this.maxHops = 10,
     this.sendInterval = Duration.zero,
+    this.retention = const Duration(days: 3),
   });
 
   /// FR-6: how long a new message may circulate before it is discarded.
@@ -15,6 +16,10 @@ class MeshConfig {
   /// Artificial gap between outgoing sends. Zero in normal use; the FR-7
   /// congestion test raises it to simulate a slow, saturated Bluetooth link.
   Duration sendInterval;
+
+  /// How long expired messages, HQ notices and their relay-log rows are kept
+  /// before being deleted from the phone (they stop being relayed at expiry).
+  Duration retention;
 
   /// Phase 9 TTL test: short TTL so expiry can be watched live.
   static const Duration testTtl = Duration(minutes: 2);

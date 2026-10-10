@@ -18,6 +18,7 @@ mesh_app/android/build/
 /*.pdf
 /*.docx
 /*.png
+/*.html
 /KICKOFF_PROMPT.md
 /PROJECT_OVERVIEW.md
 /IMPLEMENTATION_PLAN.md

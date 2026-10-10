@@ -68,6 +68,10 @@ class _Outgoing {
 /// The same flood also carries HQ notices back the other way: delivery
 /// receipts for senders, and broadcast alerts for everyone. Each is checked
 /// against HQ's signature before it is stored or passed on.
+///
+/// Privacy: the relay log never names other people's messages or the phones
+/// they came from. A relay phone sees only "a sealed Medical message passed
+/// through". Old data is deleted [MeshConfig.retention] after it expires.
 class RelayManager extends ChangeNotifier {
   RelayManager({
     required this.db,
@@ -100,6 +104,7 @@ class RelayManager extends ChangeNotifier {
   final List<StreamSubscription<dynamic>> _subs = [];
   final _newAlerts = StreamController<StoredNotice>.broadcast();
   Timer? _expiryTimer;
+  Timer? _pruneTimer;
 
   List<String> get log => List.unmodifiable(_log);
   int get queueLength => _queue.length;
@@ -145,6 +150,8 @@ class RelayManager extends ChangeNotifier {
     _subs.add(transport.peerConnected.listen((p) => _run(() => _offerStoreTo(p))));
     _expiryTimer =
         Timer.periodic(const Duration(seconds: 15), (_) => _run(sweepExpired));
+    unawaited(_run(pruneOld));
+    _pruneTimer = Timer.periodic(const Duration(hours: 1), (_) => _run(pruneOld));
   }
 
   /// Runs [task] after every earlier task, so two copies of the same message
@@ -194,7 +201,7 @@ class RelayManager extends ChangeNotifier {
       if (await db.hasExchanged(m.messageId, peer.deviceId)) continue;
       if (_enqueueMessage(peer, m)) count++;
     }
-    if (count > 0) _addLog('PEER ${peer.deviceId}: offering $count carried item(s)');
+    if (count > 0) _addLog('PEER connected: offering $count carried item(s)');
     unawaited(_pump());
   }
 
@@ -242,7 +249,7 @@ class RelayManager extends ChangeNotifier {
       if (!await db.hasExchanged(id, source)) {
         await db.logRelay(id, source, RelayDirection.inbound, now);
       }
-      _addLog('DUP  ${_short(id)} from $source: already seen, not relayed');
+      _addLog('DUP  ${type.label} (sealed): already have it, not relayed');
       notifyListeners();
       return;
     }
@@ -251,14 +258,14 @@ class RelayManager extends ChangeNotifier {
     final expiry = DateTime.fromMillisecondsSinceEpoch(packet.ttlExpiryMs.toInt());
     if (!expiry.isAfter(now)) {
       stats.expiredDropped++;
-      _addLog('DROP ${_short(id)} from $source: TTL expired');
+      _addLog('DROP ${type.label} (sealed): TTL expired');
       notifyListeners();
       return;
     }
     final hops = packet.hopCount + 1;
     if (hops > config.maxHops) {
       stats.hopLimitDropped++;
-      _addLog('DROP ${_short(id)} from $source: hop limit ($hops > ${config.maxHops})');
+      _addLog('DROP ${type.label} (sealed): hop limit ($hops > ${config.maxHops})');
       notifyListeners();
       return;
     }
@@ -283,8 +290,8 @@ class RelayManager extends ChangeNotifier {
     // 3.5 Log relay event (D2)
     await db.logRelay(id, source, RelayDirection.inbound, now);
     stats.received++;
-    _addLog('IN   ${_short(id)} ${type.label} hop $hops from $source | '
-        'content: ${packet.sealedPayload.length} B sealed ${_hex(packet.sealedPayload)}');
+    _addLog('IN   ${type.label} relayed for someone else, hop $hops | '
+        'sealed ${packet.sealedPayload.length} B ${_hex(packet.sealedPayload)}');
 
     // 3.4 Broadcast onward (FR-4), unless it has reached the hop limit
     if (hops < config.maxHops) {
@@ -334,7 +341,7 @@ class RelayManager extends ChangeNotifier {
     final expiry = DateTime.fromMillisecondsSinceEpoch(n.expiryMs.toInt());
     if (!expiry.isAfter(now)) {
       stats.expiredDropped++;
-      _addLog('DROP notice ${_short(id)} from $source: expired');
+      _addLog('DROP HQ notice: expired');
       notifyListeners();
       return false;
     }
@@ -361,17 +368,20 @@ class RelayManager extends ChangeNotifier {
 
     if (receipt) {
       final messageId = n.receipt.messageId;
-      _addLog('IN   receipt ${_short(messageId)}: ${receiptState.label}'
-          '${stored.teamName != null ? ' · ${stored.teamName}' : ''} from $source');
-      // HQ has this message: stop spending radio time on it.
       final m = await db.getMessage(messageId);
+      final mine = m != null && m.senderDeviceId == transport.localId;
+      _addLog(mine
+          ? 'IN   HQ receipt for your ${m.type.label}: ${receiptState.label}'
+              '${stored.teamName != null ? ' · ${stored.teamName}' : ''}'
+          : 'IN   HQ receipt (for someone else\'s message)');
+      // HQ has this message: stop spending radio time on it.
       if (m != null && (m.status == MessageStatus.created || m.status == MessageStatus.relayed)) {
         await db.setStatus(messageId, MessageStatus.uploaded);
         stats.deliveredElsewhere++;
-        _addLog('STOP ${_short(messageId)}: HQ already has it, no longer relayed');
+        if (!mine) _addLog('STOP ${m.type.label} (sealed): HQ already has it, no longer relayed');
       }
     } else {
-      _addLog('IN   ${level!.label.toUpperCase()} alert "${n.alert.title}" from $source');
+      _addLog('IN   HQ ${level!.label.toUpperCase()} alert "${n.alert.title}"');
       _newAlerts.add(stored);
     }
 
@@ -455,8 +465,10 @@ class RelayManager extends ChangeNotifier {
     await transport.send(item.peer.endpointId, _toPacket(m).writeToBuffer());
     await db.logRelay(m.messageId, item.peer.deviceId, RelayDirection.outbound, now);
     stats.forwarded++;
-    _addLog('OUT  ${_short(m.messageId)} ${m.type.label} hop ${m.hopCount} '
-        '-> ${item.peer.deviceId} (score ${item.score.toStringAsFixed(1)})');
+    _addLog(m.senderDeviceId == transport.localId
+        ? 'OUT  your ${m.type.label} ${_short(m.messageId)} -> ${item.peer.deviceId}'
+        : 'OUT  ${m.type.label} relayed (sealed), hop ${m.hopCount} '
+            '(score ${item.score.toStringAsFixed(1)})');
     return true;
   }
 
@@ -470,8 +482,7 @@ class RelayManager extends ChangeNotifier {
     await transport.send(item.peer.endpointId, frame.writeToBuffer());
     await db.logRelay(n.noticeId, item.peer.deviceId, RelayDirection.outbound, now);
     stats.forwarded++;
-    _addLog('OUT  ${n.kind == NoticeKind.receipt ? 'receipt ${_short(n.messageId!)}' : 'alert "${n.title}"'} '
-        '-> ${item.peer.deviceId}');
+    _addLog('OUT  HQ ${n.kind == NoticeKind.receipt ? 'receipt' : 'alert "${n.title}"'} passed on');
     return true;
   }
 
@@ -481,6 +492,17 @@ class RelayManager extends ChangeNotifier {
     if (n > 0) {
       stats.expiredInStore += n;
       _addLog('EXPIRE $n message(s): TTL passed, no longer relayed');
+    }
+  }
+
+  /// Deletes messages, notices and relay-log rows that expired more than
+  /// [MeshConfig.retention] ago, so the phone doesn't keep other people's
+  /// (sealed) traffic, or its own history, forever.
+  Future<void> pruneOld() async {
+    final r = await db.pruneExpiredBefore(_now().subtract(config.retention));
+    if (r.total > 0) {
+      _addLog('CLEAN deleted ${r.messages} old message(s), ${r.notices} notice(s), '
+          '${r.logRows} log row(s) (expired > ${config.retention.inDays} days ago)');
     }
   }
 
@@ -518,6 +540,7 @@ class RelayManager extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _expiryTimer?.cancel();
+    _pruneTimer?.cancel();
     for (final s in _subs) {
       s.cancel();
     }

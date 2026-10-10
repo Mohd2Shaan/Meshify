@@ -5,10 +5,12 @@ import '../db/app_database.dart';
 import '../models/emergency_message.dart';
 import '../models/hq_notice.dart';
 
-/// The local Message Store (D1): what this phone created or is carrying.
-///
-/// For its own messages, the sender also sees HQ's latest delivery receipt:
+/// This phone's own messages, with HQ's latest delivery receipt for each:
 /// delivered, seen by responders (and which team), resolved.
+///
+/// Messages it carries for other people are not listed (no type, sender or
+/// id), only counted: a relay phone has no business knowing who asked for
+/// help. Their content is sealed for HQ anyway.
 class MessagesScreen extends StatelessWidget {
   const MessagesScreen({super.key, required this.deviceId});
 
@@ -22,20 +24,28 @@ class MessagesScreen extends StatelessWidget {
       body: StreamBuilder<List<StoredMessage>>(
         stream: db.watchMessages(),
         builder: (context, snap) {
-          final rows = snap.data ?? const [];
-          if (rows.isEmpty) {
-            return const Center(child: Text('No messages created or carried yet'));
-          }
+          final rows = snap.data ?? const <StoredMessage>[];
+          final mine = rows.where((m) => m.senderDeviceId == deviceId).toList();
+          final carrying = rows
+              .where((m) =>
+                  m.senderDeviceId != deviceId &&
+                  (m.status == MessageStatus.created || m.status == MessageStatus.relayed))
+              .length;
           return StreamBuilder<Map<String, StoredNotice>>(
             stream: db.watchReceipts(),
-            builder: (context, receipts) => ListView.separated(
-              itemCount: rows.length,
-              separatorBuilder: (_, _) => const Divider(height: 1),
-              itemBuilder: (_, i) => _MessageTile(
-                m: rows[i],
-                mine: rows[i].senderDeviceId == deviceId,
-                receipt: receipts.data?[rows[i].messageId],
-              ),
+            builder: (context, receipts) => ListView(
+              children: [
+                if (carrying > 0) _CarryingCard(count: carrying),
+                if (mine.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Text("You haven't sent any messages yet", textAlign: TextAlign.center),
+                  ),
+                for (final m in mine) ...[
+                  _MessageTile(m: m, receipt: receipts.data?[m.messageId]),
+                  const Divider(height: 1),
+                ],
+              ],
             ),
           );
         },
@@ -44,33 +54,49 @@ class MessagesScreen extends StatelessWidget {
   }
 }
 
+/// How many sealed messages this phone is carrying for other people.
+class _CarryingCard extends StatelessWidget {
+  const _CarryingCard({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: ListTile(
+        leading: const Icon(Icons.lock, color: Colors.teal),
+        title: Text('Carrying $count sealed message${count == 1 ? '' : 's'} for others'),
+        subtitle: const Text('Only HQ can read them. This phone just passes them on.'),
+      ),
+    );
+  }
+}
+
 class _MessageTile extends StatelessWidget {
-  const _MessageTile({required this.m, required this.mine, this.receipt});
+  const _MessageTile({required this.m, this.receipt});
 
   final StoredMessage m;
-  final bool mine;
 
   /// HQ's latest receipt for this message, if one has reached this phone.
   final StoredNotice? receipt;
 
   @override
   Widget build(BuildContext context) {
-    final content = mine
-        ? '${m.latitude!.toStringAsFixed(5)}, ${m.longitude!.toStringAsFixed(5)}'
-            '${m.note != null ? ' · "${m.note}"' : ''}'
-        : 'Content sealed (${m.sealedPayload.length} bytes). Only HQ can read it';
+    final content = '${m.latitude!.toStringAsFixed(5)}, ${m.longitude!.toStringAsFixed(5)}'
+        '${m.note != null ? ' · "${m.note}"' : ''}';
     return ListTile(
       leading: CircleAvatar(
         backgroundColor: m.type.color,
         child: Icon(m.type.icon, color: Colors.white),
       ),
-      title: Text('${m.type.label} · ${mine ? 'created here' : 'from ${m.senderDeviceId}'}'),
+      title: Text(m.type.label),
       subtitle: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('$content\n'
               'hop ${m.hopCount} · ${_expiresIn(m.ttlExpiry)} · id ${m.messageId.substring(0, 8)}'),
-          if (mine) _ReceiptLine(receipt: receipt, status: m.status),
+          _ReceiptLine(receipt: receipt, status: m.status),
         ],
       ),
       isThreeLine: true,

@@ -299,6 +299,25 @@ class AppDatabase extends _$AppDatabase {
       (update(notices)..where((n) => n.kind.equalsValue(NoticeKind.alert) & n.seen.equals(false)))
           .write(const NoticesCompanion(seen: Value(true)));
 
+  // ---- Clean-up --------------------------------------------------------------
+
+  /// Deletes what can no longer matter: messages and notices that expired
+  /// before [cutoff], then the relay-log and upload rows that pointed at them.
+  ///
+  /// Safe for deduplication (FR-5): a copy of a deleted message or notice
+  /// that turns up again has long expired, so the TTL check drops it anyway.
+  Future<PruneResult> pruneExpiredBefore(DateTime cutoff) => transaction(() async {
+        final msgs = await (delete(messages)..where((m) => m.ttlExpiry.isSmallerThanValue(cutoff))).go();
+        final nts = await (delete(notices)..where((n) => n.expiry.isSmallerThanValue(cutoff))).go();
+        final keptMessages = selectOnly(messages)..addColumns([messages.messageId]);
+        final keptNotices = selectOnly(notices)..addColumns([notices.noticeId]);
+        final logs = await (delete(relayLog)
+              ..where((r) => r.messageId.isNotInQuery(keptMessages) & r.messageId.isNotInQuery(keptNotices)))
+            .go();
+        final ups = await (delete(gatewayUploads)..where((u) => u.messageId.isNotInQuery(keptMessages))).go();
+        return PruneResult(msgs, nts, logs + ups);
+      });
+
   // ---- D2 RelayLog -------------------------------------------------------------
 
   Future<void> logRelay(
@@ -324,6 +343,16 @@ class AppDatabase extends _$AppDatabase {
 
   Future<List<RelayLogEntry>> relayLogFor(String messageId) =>
       (select(relayLog)..where((r) => r.messageId.equals(messageId))).get();
+}
+
+class PruneResult {
+  const PruneResult(this.messages, this.notices, this.logRows);
+
+  final int messages;
+  final int notices;
+  final int logRows;
+
+  int get total => messages + notices + logRows;
 }
 
 /// Random UUID v4 string.
