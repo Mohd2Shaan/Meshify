@@ -21,3 +21,6 @@ mesh_app/android/build/
 /KICKOFF_PROMPT.md
 /PROJECT_OVERVIEW.md
 /IMPLEMENTATION_PLAN.md
+
+# Built APKs (contain the gateway API key)
+/apk/
