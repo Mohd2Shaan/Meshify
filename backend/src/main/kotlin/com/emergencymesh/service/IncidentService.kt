@@ -16,6 +16,7 @@ import java.time.Clock
 class IncidentService(
 	private val incidents: IncidentRecordRepository,
 	private val teams: ResponderTeamRepository,
+	private val notices: NoticeService,
 	private val clock: Clock,
 ) {
 	@Transactional(readOnly = true)
@@ -25,7 +26,7 @@ class IncidentService(
 		} else {
 			incidents.findByStatusInOrderByCreatedAtDesc(statuses)
 		}
-		return rows.map(IncidentDto::from)
+		return rows.map { IncidentDto.from(it, notices.latestReceipt(it.message.messageId)) }
 	}
 
 	@Transactional
@@ -37,7 +38,7 @@ class IncidentService(
 			}
 		}
 		incident.updatedAt = clock.instant()
-		return IncidentDto.from(incident)
+		return changed(incident)
 	}
 
 	@Transactional
@@ -45,7 +46,13 @@ class IncidentService(
 		val incident = find(incidentId)
 		incident.status = status
 		incident.updatedAt = clock.instant()
-		return IncidentDto.from(incident)
+		return changed(incident)
+	}
+
+	/** Sends the sender a fresh receipt (status, team) and returns the updated DTO. */
+	private fun changed(incident: IncidentRecord): IncidentDto {
+		val receipt = notices.issueReceipt(incident)
+		return IncidentDto.from(incident, receipt)
 	}
 
 	private fun find(id: String): IncidentRecord =

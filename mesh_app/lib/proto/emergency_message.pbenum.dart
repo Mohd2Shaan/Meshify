@@ -43,5 +43,54 @@ class MessageType extends $pb.ProtobufEnum {
   const MessageType._(super.value, super.name);
 }
 
+class ReceiptStatus extends $pb.ProtobufEnum {
+  static const ReceiptStatus RECEIPT_STATUS_UNSPECIFIED =
+      ReceiptStatus._(0, _omitEnumNames ? '' : 'RECEIPT_STATUS_UNSPECIFIED');
+  static const ReceiptStatus DELIVERED =
+      ReceiptStatus._(1, _omitEnumNames ? '' : 'DELIVERED');
+  static const ReceiptStatus ACKNOWLEDGED =
+      ReceiptStatus._(2, _omitEnumNames ? '' : 'ACKNOWLEDGED');
+  static const ReceiptStatus RESOLVED =
+      ReceiptStatus._(3, _omitEnumNames ? '' : 'RESOLVED');
+
+  static const $core.List<ReceiptStatus> values = <ReceiptStatus>[
+    RECEIPT_STATUS_UNSPECIFIED,
+    DELIVERED,
+    ACKNOWLEDGED,
+    RESOLVED,
+  ];
+
+  static final $core.List<ReceiptStatus?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static ReceiptStatus? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const ReceiptStatus._(super.value, super.name);
+}
+
+class AlertLevel extends $pb.ProtobufEnum {
+  static const AlertLevel ALERT_LEVEL_UNSPECIFIED =
+      AlertLevel._(0, _omitEnumNames ? '' : 'ALERT_LEVEL_UNSPECIFIED');
+  static const AlertLevel INFO = AlertLevel._(1, _omitEnumNames ? '' : 'INFO');
+  static const AlertLevel WARNING =
+      AlertLevel._(2, _omitEnumNames ? '' : 'WARNING');
+  static const AlertLevel CRITICAL =
+      AlertLevel._(3, _omitEnumNames ? '' : 'CRITICAL');
+
+  static const $core.List<AlertLevel> values = <AlertLevel>[
+    ALERT_LEVEL_UNSPECIFIED,
+    INFO,
+    WARNING,
+    CRITICAL,
+  ];
+
+  static final $core.List<AlertLevel?> _byValue =
+      $pb.ProtobufEnum.$_initByValueList(values, 3);
+  static AlertLevel? valueOf($core.int value) =>
+      value < 0 || value >= _byValue.length ? null : _byValue[value];
+
+  const AlertLevel._(super.value, super.name);
+}
+
 const $core.bool _omitEnumNames =
     $core.bool.fromEnvironment('protobuf.omit_enum_names');

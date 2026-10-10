@@ -2,18 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../config.dart';
+import '../db/app_database.dart';
+import '../models/hq_notice.dart';
 import '../mesh/mesh_controller.dart';
 import '../mesh/nearby_service.dart';
 import '../models/emergency_message.dart';
 import '../services/emergency_sender.dart';
 import '../services/location_service.dart';
+import 'alerts_screen.dart';
 
 /// Send Emergency screen (SRS 3.3), FR-1.
 ///
 /// Two taps (SRS 3.2 usability): tap a need type, then SEND. The note is
 /// optional and can be skipped.
 class SendEmergencyScreen extends StatelessWidget {
-  const SendEmergencyScreen({super.key});
+  const SendEmergencyScreen({super.key, this.onShowAlerts});
+
+  /// Opens the Alerts tab (from the HQ alert banner).
+  final VoidCallback? onShowAlerts;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +41,7 @@ class SendEmergencyScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _ActiveAlertBanner(onTap: onShowAlerts),
             if (controller.paused)
               _ProblemBanner(problems: controller.health.problems)
             else
@@ -248,6 +255,31 @@ class _ConfirmSheetState extends State<_ConfirmSheet> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The newest unexpired Warning or Critical alert from HQ, so someone about to
+/// send an SOS sees it first (e.g. "Evacuate North Zone").
+class _ActiveAlertBanner extends StatelessWidget {
+  const _ActiveAlertBanner({this.onTap});
+
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<StoredNotice>>(
+      stream: context.read<AppDatabase>().watchAlerts(),
+      builder: (context, snap) {
+        final now = DateTime.now();
+        final active = (snap.data ?? const <StoredNotice>[]).where((a) =>
+            a.expiry.isAfter(now) && a.alertLevel != AlertLevel.info);
+        if (active.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: GestureDetector(onTap: onTap, child: AlertCard(active.first, compact: true)),
+        );
+      },
     );
   }
 }

@@ -1,4 +1,5 @@
 import '../models/emergency_message.dart';
+import '../models/hq_notice.dart';
 
 /// FR-7: priority score = f(type, age, hop count). Higher goes out first.
 ///
@@ -29,4 +30,14 @@ double typeWeight(NeedType type) => switch (type) {
       NeedType.trapped => 90,
       NeedType.supplies => 50,
       NeedType.status => 10,
+    };
+
+/// Queue score for an HQ notice, on the same scale as [priorityScore]. A
+/// critical alert (e.g. an evacuation order affects everyone) goes out before
+/// any single SOS; a receipt sits just below a fresh Trapped report.
+double noticeScore({required NoticeKind kind, AlertLevel? level}) => switch ((kind, level)) {
+      (NoticeKind.alert, AlertLevel.critical) => 130,
+      (NoticeKind.alert, AlertLevel.warning) => 110,
+      (NoticeKind.alert, _) => 80,
+      (NoticeKind.receipt, _) => 85,
     };

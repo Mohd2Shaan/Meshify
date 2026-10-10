@@ -3,6 +3,7 @@ package com.emergencymesh.mesh_app
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.BatteryManager
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
@@ -53,6 +54,25 @@ object MeshPlatformChannel {
                                 "problems" to problems,
                             ),
                         )
+                    }
+                    "battery" -> {
+                        val bm = app.getSystemService(BatteryManager::class.java)
+                        result.success(
+                            mapOf(
+                                "level" to bm.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY),
+                                "charging" to bm.isCharging,
+                            ),
+                        )
+                    }
+                    "showHqAlert" -> {
+                        MeshHealth.notifyHqAlert(
+                            app,
+                            call.argument<String>("id") ?: "",
+                            call.argument<String>("level") ?: "INFO",
+                            call.argument<String>("title") ?: "",
+                            call.argument<String>("body") ?: "",
+                        )
+                        result.success(null)
                     }
                     "isIgnoringBatteryOptimizations" -> {
                         val pm = app.getSystemService(PowerManager::class.java)

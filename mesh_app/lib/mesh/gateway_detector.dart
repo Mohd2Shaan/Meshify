@@ -16,21 +16,31 @@ import '../services/gateway_uploader.dart';
 ///
 /// FR-9: while a Gateway, it uploads whatever the phone carries, and again
 /// whenever a new message arrives over the mesh.
+///
+/// It also works the other way: after each check it fetches HQ's new
+/// receipts and alerts and hands them to the relay, which floods them to
+/// every phone it can reach.
 class GatewayDetector extends ChangeNotifier {
   GatewayDetector({
     required this.db,
     required this.uploader,
     required this.service,
+    required this.deliverNotice,
     BackendClient Function(BackendSettings)? clientFactory,
   }) : _clientFactory = clientFactory ?? BackendClient.new;
 
   final AppDatabase db;
   final GatewayUploader uploader;
   final BackgroundService service;
+
+  /// Hands a notice fetched from HQ to the relay (RelayManager.acceptFromHq).
+  /// Returns true if it was new.
+  final Future<bool> Function(Uint8List body, Uint8List signature) deliverNotice;
   final BackendClient Function(BackendSettings) _clientFactory;
 
   static const _urlKey = 'backendUrl';
   static const _apiKeyKey = 'gatewayApiKey';
+  static const _noticeCursorKey = 'noticeCursor';
   static const checkInterval = Duration(seconds: 30);
 
   late BackendSettings _settings;
@@ -38,9 +48,11 @@ class GatewayDetector extends ChangeNotifier {
   bool _isGateway = false;
   bool _uploading = false;
   bool _uploadAgain = false;
+  bool _syncing = false;
   DateTime? _lastCheck;
   UploadRun? _lastRun;
   int _deliveredTotal = 0;
+  int _noticesFetched = 0;
   Timer? _timer;
   StreamSubscription<Object>? _storeSub;
 
@@ -49,6 +61,9 @@ class GatewayDetector extends ChangeNotifier {
   DateTime? get lastCheck => _lastCheck;
   UploadRun? get lastRun => _lastRun;
   int get deliveredTotal => _deliveredTotal;
+
+  /// New receipts and alerts this phone brought into the mesh from HQ.
+  int get noticesFetched => _noticesFetched;
   BackendSettings get settings => _settings;
 
   Future<void> init() async {
@@ -72,6 +87,7 @@ class GatewayDetector extends ChangeNotifier {
     await db.setSetting(_apiKeyKey, apiKey.trim());
     _settings = BackendSettings(clean, apiKey.trim());
     _client = _clientFactory(_settings);
+    await db.setSetting(_noticeCursorKey, null); // new backend: fetch everything active
     await check();
   }
 
@@ -83,7 +99,29 @@ class GatewayDetector extends ChangeNotifier {
     _isGateway = reachable;
     notifyListeners();
     if (changed) _pushStatus();
-    if (reachable) await uploadNow();
+    if (reachable) {
+      await uploadNow();
+      await syncNotices(); // alerts and status changes, even with nothing to upload
+    }
+  }
+
+  /// Fetches HQ's new receipts and alerts and floods them into the mesh.
+  /// Uploads go first, so a just-delivered message's receipt is included.
+  Future<void> syncNotices() async {
+    if (_syncing) return;
+    _syncing = true;
+    try {
+      final since = int.tryParse(await db.getSetting(_noticeCursorKey) ?? '') ?? 0;
+      final feed = await _client.fetchNotices(since);
+      if (feed == null) return;
+      for (final n in feed.notices) {
+        if (await deliverNotice(n.body, n.signature)) _noticesFetched++;
+      }
+      await db.setSetting(_noticeCursorKey, '${feed.serverTimeMs}');
+    } finally {
+      _syncing = false;
+      notifyListeners();
+    }
   }
 
   /// FR-9: upload everything pending. Serialised: a call during a run makes
@@ -95,11 +133,13 @@ class GatewayDetector extends ChangeNotifier {
     }
     _uploading = true;
     notifyListeners();
+    var delivered = 0;
     try {
       do {
         _uploadAgain = false;
         final run = await uploader.uploadPending(_client);
         _deliveredTotal += run.delivered;
+        delivered += run.delivered;
         if (run.attempted > 0 || run.stoppedBecause != null) _lastRun = run;
         if (run.stoppedBecause != null && !run.unauthorized) {
           _isGateway = false; // the network went away mid-run
@@ -111,6 +151,8 @@ class GatewayDetector extends ChangeNotifier {
       _uploading = false;
       notifyListeners();
     }
+    // Fetch the receipts for what just arrived, so senders hear back quickly.
+    if (delivered > 0) await syncNotices();
   }
 
   void _pushStatus() => unawaited(service.setGateway(_isGateway));

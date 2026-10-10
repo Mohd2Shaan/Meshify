@@ -46,3 +46,14 @@ Content-Type: application/json
 Authorization: Basic responder responder123
 
 { "status": "ACKNOWLEDGED" }
+
+### HQ broadcast alert (INFO | WARNING | CRITICAL), relayed to every phone
+POST {{base}}/api/alerts
+Content-Type: application/json
+Authorization: Basic responder responder123
+
+{ "level": "WARNING", "title": "Shelter open at City School", "message": "Food, water and first aid on MG Road.", "validForMinutes": 360 }
+
+### What a gateway fetches: signed receipts and alerts
+GET {{base}}/api/notices?since=0
+X-API-Key: dev-gateway-key

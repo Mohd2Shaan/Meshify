@@ -18,6 +18,7 @@ const state = {
   lastOk: 0,
   busy: false,
   detailKey: null, // what the detail panel currently shows
+  alerts: [],      // recent HQ broadcasts, while the broadcast dialog is open
 };
 
 const $ = (id) => document.getElementById(id);
@@ -77,6 +78,7 @@ $('login-form').addEventListener('submit', async (e) => {
     await refresh(true);
     $('login').hidden = true;
     $('logout').hidden = false;
+    $('open-alerts').hidden = false;
     $('login-pass').value = '';
   } catch (err) {
     logout(err instanceof AuthError ? 'Wrong username or password.' : `Cannot reach the backend: ${err.message}`);
@@ -86,6 +88,8 @@ $('login-form').addEventListener('submit', async (e) => {
 function logout(message) {
   try { sessionStorage.removeItem(AUTH_KEY); } catch { /* ignore */ }
   memoryAuth = null;
+  $('open-alerts').hidden = true;
+  $('alerts-modal').hidden = true;
   showLogin(message);
 }
 $('logout').addEventListener('click', () => logout());
@@ -265,6 +269,7 @@ function renderDetail() {
         el('a', { href: `https://www.openstreetmap.org/?mlat=${i.latitude}&mlon=${i.longitude}#map=18/${i.latitude}/${i.longitude}`, target: '_blank', rel: 'noopener' }, coords)),
       el('dt', {}, 'Reported'), el('dd', {}, `${new Date(i.reportedAt).toLocaleString()} (${ago(i.reportedAt)})`),
       el('dt', {}, 'Reached HQ'), el('dd', {}, `${ago(i.createdAt)} via ${i.hopCount} mesh hop${i.hopCount === 1 ? '' : 's'}`),
+      el('dt', {}, 'Sender told'), receiptCell(i.receipt),
       el('dt', {}, 'Message ID'), el('dd', {}, i.messageId)),
     el('div', { class: 'section-title' }, 'Assign team (FR-12)'),
     el('div', { class: 'assign' }, teamSelect, act('Assign', '', async () => {
@@ -303,6 +308,101 @@ function toast(text, color) {
   $('toasts').append(t);
   setTimeout(() => t.remove(), 6000);
 }
+
+// ---- Delivery receipts & broadcast alerts (HQ -> mesh) --------------------
+
+const RECEIPT_LABEL = { DELIVERED: 'Delivered', ACKNOWLEDGED: 'Seen by responders', RESOLVED: 'Resolved' };
+const LEVEL_LABEL = { INFO: 'Info', WARNING: 'Warning', CRITICAL: 'Critical' };
+
+function clock(iso) { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+
+// What the sender's phone has been told, and whether it has left HQ yet.
+function receiptCell(r) {
+  if (!r) return el('dd', {}, 'Not yet');
+  const what = RECEIPT_LABEL[r.status] + (r.teamName ? ` · ${r.teamName}` : '');
+  return r.pickedUpAt
+    ? el('dd', { class: 'receipt-live' }, `${what} (in the mesh since ${clock(r.pickedUpAt)})`)
+    : el('dd', { class: 'receipt-wait' }, `${what} (waiting for a gateway to pick it up)`);
+}
+
+async function loadAlerts() {
+  state.alerts = await api('/api/alerts');
+  renderAlerts();
+}
+
+function renderAlerts() {
+  const now = Date.now();
+  const list = $('alert-history');
+  if (!state.alerts.length) {
+    list.replaceChildren(el('li', { class: 'expired', style: '--lvl:var(--line)' }, 'Nothing broadcast yet.'));
+    return;
+  }
+  list.replaceChildren(...state.alerts.map((a) => {
+    const expired = new Date(a.expiresAt) <= now;
+    const stateText = expired ? `Expired ${clock(a.expiresAt)}`
+      : a.pickedUpAt ? `In the mesh since ${clock(a.pickedUpAt)} · until ${clock(a.expiresAt)}`
+      : 'Waiting for a gateway phone to pick it up';
+    return el('li', { class: expired ? 'expired' : '', style: `--lvl:var(--${a.level})` },
+      el('div', { class: 'row' },
+        el('span', { class: 'lvl' }, LEVEL_LABEL[a.level].toUpperCase()),
+        el('span', { class: 'state' }, `${clock(a.createdAt)}`)),
+      el('strong', {}, a.title),
+      el('p', { class: 'msg' }, a.message),
+      el('span', { class: `state${a.pickedUpAt && !expired ? ' live' : ''}` }, stateText));
+  }));
+}
+
+function openAlerts() {
+  $('alerts-modal').hidden = false;
+  $('alert-error').hidden = true;
+  $('alert-title').focus();
+  loadAlerts().catch((err) => {
+    if (err instanceof AuthError) logout('Session expired. Log in again.');
+  });
+}
+
+$('open-alerts').addEventListener('click', openAlerts);
+$('close-alerts').addEventListener('click', () => { $('alerts-modal').hidden = true; });
+$('alerts-modal').addEventListener('click', (e) => { if (e.target.id === 'alerts-modal') $('alerts-modal').hidden = true; });
+$('alert-message').addEventListener('input', (e) => { $('alert-count').textContent = `${e.target.value.length} / 280`; });
+
+$('alert-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const button = e.submitter || e.target.querySelector('button[type=submit]');
+  const error = $('alert-error');
+  const level = e.target.querySelector('input[name=level]:checked').value;
+  if (level === 'CRITICAL' && button.dataset.confirm !== '1') {
+    // One extra click for CRITICAL: it alarms every phone in the area.
+    button.dataset.confirm = '1';
+    button.textContent = 'Click again to send CRITICAL alert';
+    return;
+  }
+  button.disabled = true;
+  error.hidden = true;
+  try {
+    const a = await api('/api/alerts', {
+      method: 'POST',
+      body: {
+        level,
+        title: $('alert-title').value.trim(),
+        message: $('alert-message').value.trim(),
+        validForMinutes: Number($('alert-valid').value),
+      },
+    });
+    e.target.reset();
+    $('alert-count').textContent = '0 / 280';
+    toast(`${LEVEL_LABEL[a.level]} alert queued: "${a.title}". Gateways will relay it.`, `var(--${a.level})`);
+    await loadAlerts();
+  } catch (err) {
+    if (err instanceof AuthError) return logout('Session expired. Log in again.');
+    error.textContent = `Failed: ${err.message}`;
+    error.hidden = false;
+  } finally {
+    button.disabled = false;
+    delete button.dataset.confirm;
+    button.textContent = 'Send to the mesh';
+  }
+});
 
 // ---- Polling ---------------------------------------------------------------
 
@@ -347,20 +447,30 @@ function updateClock() {
 
 async function poll() {
   if (!authHeader()) return;
-  try { await refresh(); } catch (err) {
+  try {
+    await refresh();
+    if (!$('alerts-modal').hidden) await loadAlerts();
+  } catch (err) {
     if (err instanceof AuthError) logout('Session expired. Log in again.');
   }
 }
 
 $('show-resolved').addEventListener('change', () => render());
 $('filter-severity').addEventListener('change', () => render());
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape') select(null); });
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  if (!$('alerts-modal').hidden) $('alerts-modal').hidden = true;
+  else select(null);
+});
 setInterval(poll, POLL_MS);
 setInterval(updateClock, 1000);
 
 // Start: reuse this tab's login if there is one.
 if (authHeader()) {
-  refresh(true).then(() => { $('logout').hidden = false; }).catch(() => showLogin());
+  refresh(true).then(() => {
+    $('logout').hidden = false;
+    $('open-alerts').hidden = false;
+  }).catch(() => showLogin());
 } else {
   showLogin();
 }

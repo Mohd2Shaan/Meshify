@@ -3,6 +3,7 @@ package com.emergencymesh.crypto
 import com.goterl.lazysodium.LazySodiumJava
 import com.goterl.lazysodium.SodiumJava
 import com.goterl.lazysodium.interfaces.Box
+import com.goterl.lazysodium.interfaces.Sign
 
 /**
  * libsodium via lazysodium (bundles the native library for Windows, Linux and
@@ -44,4 +45,32 @@ object Sodium {
 		val ok = lazy.cryptoBoxSealOpen(out, sealed, sealed.size.toLong(), publicKey, secretKey)
 		return if (ok) out else null
 	}
+
+	/**
+	 * Ed25519 signing keypair derived from [secretKey] (the X25519 key) with a
+	 * keyed BLAKE2b hash. Domain-separated, so the encryption key itself is never
+	 * used for signing, and there is still only one secret to back up and deploy.
+	 * Returns (publicKey 32 B, secretKey 64 B).
+	 */
+	fun signingKeyPairFrom(secretKey: ByteArray): Pair<ByteArray, ByteArray> {
+		val context = "meshify/hq-notice-signing/v1".toByteArray()
+		val seed = ByteArray(Sign.SEEDBYTES)
+		check(lazy.cryptoGenericHash(seed, seed.size, context, context.size.toLong(), secretKey, secretKey.size)) {
+			"crypto_generichash failed"
+		}
+		val pk = ByteArray(Sign.PUBLICKEYBYTES)
+		val sk = ByteArray(Sign.SECRETKEYBYTES)
+		check(lazy.cryptoSignSeedKeypair(pk, sk, seed)) { "crypto_sign_seed_keypair failed" }
+		return pk to sk
+	}
+
+	fun sign(message: ByteArray, signingSecretKey: ByteArray): ByteArray {
+		val sig = ByteArray(Sign.BYTES)
+		check(lazy.cryptoSignDetached(sig, message, message.size.toLong(), signingSecretKey)) { "crypto_sign failed" }
+		return sig
+	}
+
+	fun verify(message: ByteArray, signature: ByteArray, signingPublicKey: ByteArray): Boolean =
+		signature.size == Sign.BYTES &&
+			lazy.cryptoSignVerifyDetached(signature, message, message.size, signingPublicKey)
 }

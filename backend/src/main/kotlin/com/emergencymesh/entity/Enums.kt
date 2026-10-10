@@ -17,3 +17,11 @@ enum class IncidentStatus { PENDING, ACKNOWLEDGED, RESOLVED }
 enum class DeviceType { USER_NODE, RELAY, GATEWAY }
 
 enum class BackendAckStatus { ACKNOWLEDGED, DUPLICATE, REJECTED }
+
+enum class NoticeKind { RECEIPT, ALERT }
+
+/** What a delivery receipt tells the sender. Mirrors ReceiptStatus in the .proto. */
+enum class ReceiptStatus { DELIVERED, ACKNOWLEDGED, RESOLVED }
+
+/** Broadcast alert level. Mirrors AlertLevel in the .proto. */
+enum class AlertLevel { INFO, WARNING, CRITICAL }

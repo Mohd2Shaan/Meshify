@@ -56,6 +56,22 @@ class BackgroundService {
   Future<void> updateStatus({required int peers, required int carried}) =>
       _call('updateStatus', {'peers': peers, 'carried': carried});
 
+  /// Battery level (0-100) and whether it is charging. Null off Android.
+  Future<({int level, bool charging})?> battery() async {
+    final m = await _call<Map>('battery');
+    if (m == null) return null;
+    return (level: (m['level'] as int?) ?? 100, charging: (m['charging'] as bool?) ?? false);
+  }
+
+  /// Heads-up notification for an HQ broadcast alert.
+  Future<void> showHqAlert({
+    required String id,
+    required String level,
+    required String title,
+    required String body,
+  }) =>
+      _call('showHqAlert', {'id': id, 'level': level, 'title': title, 'body': body});
+
   Future<bool> isIgnoringBatteryOptimizations() async =>
       await _call<bool>('isIgnoringBatteryOptimizations') ?? true;
 

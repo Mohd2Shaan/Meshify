@@ -23,6 +23,7 @@ import androidx.core.location.LocationManagerCompat
 object MeshHealth {
     const val CHANNEL_STATUS = "mesh_status"
     const val CHANNEL_ALERTS = "mesh_alerts"
+    const val CHANNEL_HQ = "hq_alerts"
     const val NOTIFICATION_SERVICE_ID = 1001
     const val NOTIFICATION_PROBLEM_ID = 1002
 
@@ -94,6 +95,10 @@ object MeshHealth {
             NotificationChannel(CHANNEL_ALERTS, "Mesh problems", NotificationManager.IMPORTANCE_HIGH)
                 .apply { description = "Warns when a permission or radio is off and relaying has stopped" },
         )
+        nm.createNotificationChannel(
+            NotificationChannel(CHANNEL_HQ, "Alerts from HQ", NotificationManager.IMPORTANCE_HIGH)
+                .apply { description = "Broadcasts from emergency responders, received through the mesh" },
+        )
     }
 
     fun openAppIntent(context: Context): PendingIntent {
@@ -137,5 +142,26 @@ object MeshHealth {
     fun clearProblemNotification(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(KEY_LAST_PROBLEM).apply()
         context.getSystemService(NotificationManager::class.java).cancel(NOTIFICATION_PROBLEM_ID)
+    }
+
+    /** A signed broadcast from HQ arrived through the mesh. One notification per alert. */
+    fun notifyHqAlert(context: Context, noticeId: String, level: String, title: String, body: String) {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+        ) {
+            return // the Alerts tab still shows it
+        }
+        ensureChannels(context)
+        val n = NotificationCompat.Builder(context, CHANNEL_HQ)
+            .setSmallIcon(android.R.drawable.stat_sys_warning)
+            .setContentTitle("HQ ${level.lowercase()}: $title")
+            .setContentText(body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
+            .setContentIntent(openAppIntent(context))
+            .setAutoCancel(true)
+            .build()
+        context.getSystemService(NotificationManager::class.java).notify(noticeId.hashCode(), n)
     }
 }

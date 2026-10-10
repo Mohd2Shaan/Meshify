@@ -38,6 +38,16 @@ at `/h2-console` (JDBC URL `jdbc:h2:mem:emergency_mesh`, user `sa`).
 | PATCH | `/api/incidents/{id}/assign` `{"teamId": "..."}` | FR-12 | responder login |
 | PATCH | `/api/incidents/{id}/status` `{"status": "ACKNOWLEDGED"}` | FR-13 | responder login |
 | GET | `/api/teams` | FR-12 | responder login |
+| GET | `/api/notices?since=<serverTimeMs>` | receipts, alerts | `X-API-Key` header (gateway) |
+| POST | `/api/alerts` `{"level","title","message","validForMinutes"}` | broadcast | responder login |
+| GET | `/api/alerts` | broadcast | responder login |
+
+`/api/notices` returns `{serverTimeMs, notices: [{noticeId, body, signature}]}`.
+`body` is a serialized `HqNotice` (see `proto/`), `signature` its Ed25519
+signature, both base64. Gateways relay them byte for byte and pass
+`serverTimeMs` back as `since` next time. A receipt is issued when an incident
+is created and whenever its status or team changes; only the newest per
+message is returned.
 
 Sample requests: `requests.http`. `sealedPayload` must be sealed for *your*
 key: use the value from `secrets/sample-sealed-payload.txt` (written by

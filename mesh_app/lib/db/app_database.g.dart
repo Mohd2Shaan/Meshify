@@ -1768,6 +1768,894 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   }
 }
 
+class $NoticesTable extends Notices
+    with TableInfo<$NoticesTable, StoredNotice> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $NoticesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _noticeIdMeta = const VerificationMeta(
+    'noticeId',
+  );
+  @override
+  late final GeneratedColumn<String> noticeId = GeneratedColumn<String>(
+    'notice_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<NoticeKind, String> kind =
+      GeneratedColumn<String>(
+        'kind',
+        aliasedName,
+        false,
+        type: DriftSqlType.string,
+        requiredDuringInsert: true,
+      ).withConverter<NoticeKind>($NoticesTable.$converterkind);
+  static const VerificationMeta _messageIdMeta = const VerificationMeta(
+    'messageId',
+  );
+  @override
+  late final GeneratedColumn<String> messageId = GeneratedColumn<String>(
+    'message_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<ReceiptState?, String>
+  receiptState = GeneratedColumn<String>(
+    'receipt_state',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  ).withConverter<ReceiptState?>($NoticesTable.$converterreceiptStaten);
+  static const VerificationMeta _teamNameMeta = const VerificationMeta(
+    'teamName',
+  );
+  @override
+  late final GeneratedColumn<String> teamName = GeneratedColumn<String>(
+    'team_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  late final GeneratedColumnWithTypeConverter<AlertLevel?, String> alertLevel =
+      GeneratedColumn<String>(
+        'alert_level',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      ).withConverter<AlertLevel?>($NoticesTable.$converteralertLeveln);
+  static const VerificationMeta _titleMeta = const VerificationMeta('title');
+  @override
+  late final GeneratedColumn<String> title = GeneratedColumn<String>(
+    'title',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _bodyMeta = const VerificationMeta('body');
+  @override
+  late final GeneratedColumn<String> body = GeneratedColumn<String>(
+    'body',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _issuedAtMeta = const VerificationMeta(
+    'issuedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> issuedAt = GeneratedColumn<DateTime>(
+    'issued_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _expiryMeta = const VerificationMeta('expiry');
+  @override
+  late final GeneratedColumn<DateTime> expiry = GeneratedColumn<DateTime>(
+    'expiry',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _receivedAtMeta = const VerificationMeta(
+    'receivedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> receivedAt = GeneratedColumn<DateTime>(
+    'received_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signedBodyMeta = const VerificationMeta(
+    'signedBody',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> signedBody = GeneratedColumn<Uint8List>(
+    'signed_body',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _signatureMeta = const VerificationMeta(
+    'signature',
+  );
+  @override
+  late final GeneratedColumn<Uint8List> signature = GeneratedColumn<Uint8List>(
+    'signature',
+    aliasedName,
+    false,
+    type: DriftSqlType.blob,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _supersededMeta = const VerificationMeta(
+    'superseded',
+  );
+  @override
+  late final GeneratedColumn<bool> superseded = GeneratedColumn<bool>(
+    'superseded',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("superseded" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _seenMeta = const VerificationMeta('seen');
+  @override
+  late final GeneratedColumn<bool> seen = GeneratedColumn<bool>(
+    'seen',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("seen" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    noticeId,
+    kind,
+    messageId,
+    receiptState,
+    teamName,
+    alertLevel,
+    title,
+    body,
+    issuedAt,
+    expiry,
+    receivedAt,
+    signedBody,
+    signature,
+    superseded,
+    seen,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'notices';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<StoredNotice> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('notice_id')) {
+      context.handle(
+        _noticeIdMeta,
+        noticeId.isAcceptableOrUnknown(data['notice_id']!, _noticeIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_noticeIdMeta);
+    }
+    if (data.containsKey('message_id')) {
+      context.handle(
+        _messageIdMeta,
+        messageId.isAcceptableOrUnknown(data['message_id']!, _messageIdMeta),
+      );
+    }
+    if (data.containsKey('team_name')) {
+      context.handle(
+        _teamNameMeta,
+        teamName.isAcceptableOrUnknown(data['team_name']!, _teamNameMeta),
+      );
+    }
+    if (data.containsKey('title')) {
+      context.handle(
+        _titleMeta,
+        title.isAcceptableOrUnknown(data['title']!, _titleMeta),
+      );
+    }
+    if (data.containsKey('body')) {
+      context.handle(
+        _bodyMeta,
+        body.isAcceptableOrUnknown(data['body']!, _bodyMeta),
+      );
+    }
+    if (data.containsKey('issued_at')) {
+      context.handle(
+        _issuedAtMeta,
+        issuedAt.isAcceptableOrUnknown(data['issued_at']!, _issuedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_issuedAtMeta);
+    }
+    if (data.containsKey('expiry')) {
+      context.handle(
+        _expiryMeta,
+        expiry.isAcceptableOrUnknown(data['expiry']!, _expiryMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_expiryMeta);
+    }
+    if (data.containsKey('received_at')) {
+      context.handle(
+        _receivedAtMeta,
+        receivedAt.isAcceptableOrUnknown(data['received_at']!, _receivedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_receivedAtMeta);
+    }
+    if (data.containsKey('signed_body')) {
+      context.handle(
+        _signedBodyMeta,
+        signedBody.isAcceptableOrUnknown(data['signed_body']!, _signedBodyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_signedBodyMeta);
+    }
+    if (data.containsKey('signature')) {
+      context.handle(
+        _signatureMeta,
+        signature.isAcceptableOrUnknown(data['signature']!, _signatureMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_signatureMeta);
+    }
+    if (data.containsKey('superseded')) {
+      context.handle(
+        _supersededMeta,
+        superseded.isAcceptableOrUnknown(data['superseded']!, _supersededMeta),
+      );
+    }
+    if (data.containsKey('seen')) {
+      context.handle(
+        _seenMeta,
+        seen.isAcceptableOrUnknown(data['seen']!, _seenMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {noticeId};
+  @override
+  StoredNotice map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StoredNotice(
+      noticeId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notice_id'],
+      )!,
+      kind: $NoticesTable.$converterkind.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}kind'],
+        )!,
+      ),
+      messageId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_id'],
+      ),
+      receiptState: $NoticesTable.$converterreceiptStaten.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}receipt_state'],
+        ),
+      ),
+      teamName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}team_name'],
+      ),
+      alertLevel: $NoticesTable.$converteralertLeveln.fromSql(
+        attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}alert_level'],
+        ),
+      ),
+      title: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}title'],
+      ),
+      body: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}body'],
+      ),
+      issuedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}issued_at'],
+      )!,
+      expiry: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}expiry'],
+      )!,
+      receivedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}received_at'],
+      )!,
+      signedBody: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}signed_body'],
+      )!,
+      signature: attachedDatabase.typeMapping.read(
+        DriftSqlType.blob,
+        data['${effectivePrefix}signature'],
+      )!,
+      superseded: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}superseded'],
+      )!,
+      seen: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}seen'],
+      )!,
+    );
+  }
+
+  @override
+  $NoticesTable createAlias(String alias) {
+    return $NoticesTable(attachedDatabase, alias);
+  }
+
+  static JsonTypeConverter2<NoticeKind, String, String> $converterkind =
+      const EnumNameConverter<NoticeKind>(NoticeKind.values);
+  static JsonTypeConverter2<ReceiptState, String, String>
+  $converterreceiptState = const EnumNameConverter<ReceiptState>(
+    ReceiptState.values,
+  );
+  static JsonTypeConverter2<ReceiptState?, String?, String?>
+  $converterreceiptStaten = JsonTypeConverter2.asNullable(
+    $converterreceiptState,
+  );
+  static JsonTypeConverter2<AlertLevel, String, String> $converteralertLevel =
+      const EnumNameConverter<AlertLevel>(AlertLevel.values);
+  static JsonTypeConverter2<AlertLevel?, String?, String?>
+  $converteralertLeveln = JsonTypeConverter2.asNullable($converteralertLevel);
+}
+
+class StoredNotice extends DataClass implements Insertable<StoredNotice> {
+  final String noticeId;
+  final NoticeKind kind;
+
+  /// Receipts: which message, what happened to it, and the team (if any).
+  final String? messageId;
+  final ReceiptState? receiptState;
+  final String? teamName;
+
+  /// Alerts.
+  final AlertLevel? alertLevel;
+  final String? title;
+  final String? body;
+  final DateTime issuedAt;
+  final DateTime expiry;
+  final DateTime receivedAt;
+  final Uint8List signedBody;
+  final Uint8List signature;
+
+  /// A newer receipt for the same message exists, so this one isn't relayed.
+  final bool superseded;
+
+  /// Alerts: the user has opened the Alerts tab since it arrived.
+  final bool seen;
+  const StoredNotice({
+    required this.noticeId,
+    required this.kind,
+    this.messageId,
+    this.receiptState,
+    this.teamName,
+    this.alertLevel,
+    this.title,
+    this.body,
+    required this.issuedAt,
+    required this.expiry,
+    required this.receivedAt,
+    required this.signedBody,
+    required this.signature,
+    required this.superseded,
+    required this.seen,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['notice_id'] = Variable<String>(noticeId);
+    {
+      map['kind'] = Variable<String>($NoticesTable.$converterkind.toSql(kind));
+    }
+    if (!nullToAbsent || messageId != null) {
+      map['message_id'] = Variable<String>(messageId);
+    }
+    if (!nullToAbsent || receiptState != null) {
+      map['receipt_state'] = Variable<String>(
+        $NoticesTable.$converterreceiptStaten.toSql(receiptState),
+      );
+    }
+    if (!nullToAbsent || teamName != null) {
+      map['team_name'] = Variable<String>(teamName);
+    }
+    if (!nullToAbsent || alertLevel != null) {
+      map['alert_level'] = Variable<String>(
+        $NoticesTable.$converteralertLeveln.toSql(alertLevel),
+      );
+    }
+    if (!nullToAbsent || title != null) {
+      map['title'] = Variable<String>(title);
+    }
+    if (!nullToAbsent || body != null) {
+      map['body'] = Variable<String>(body);
+    }
+    map['issued_at'] = Variable<DateTime>(issuedAt);
+    map['expiry'] = Variable<DateTime>(expiry);
+    map['received_at'] = Variable<DateTime>(receivedAt);
+    map['signed_body'] = Variable<Uint8List>(signedBody);
+    map['signature'] = Variable<Uint8List>(signature);
+    map['superseded'] = Variable<bool>(superseded);
+    map['seen'] = Variable<bool>(seen);
+    return map;
+  }
+
+  NoticesCompanion toCompanion(bool nullToAbsent) {
+    return NoticesCompanion(
+      noticeId: Value(noticeId),
+      kind: Value(kind),
+      messageId: messageId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(messageId),
+      receiptState: receiptState == null && nullToAbsent
+          ? const Value.absent()
+          : Value(receiptState),
+      teamName: teamName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(teamName),
+      alertLevel: alertLevel == null && nullToAbsent
+          ? const Value.absent()
+          : Value(alertLevel),
+      title: title == null && nullToAbsent
+          ? const Value.absent()
+          : Value(title),
+      body: body == null && nullToAbsent ? const Value.absent() : Value(body),
+      issuedAt: Value(issuedAt),
+      expiry: Value(expiry),
+      receivedAt: Value(receivedAt),
+      signedBody: Value(signedBody),
+      signature: Value(signature),
+      superseded: Value(superseded),
+      seen: Value(seen),
+    );
+  }
+
+  factory StoredNotice.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StoredNotice(
+      noticeId: serializer.fromJson<String>(json['noticeId']),
+      kind: $NoticesTable.$converterkind.fromJson(
+        serializer.fromJson<String>(json['kind']),
+      ),
+      messageId: serializer.fromJson<String?>(json['messageId']),
+      receiptState: $NoticesTable.$converterreceiptStaten.fromJson(
+        serializer.fromJson<String?>(json['receiptState']),
+      ),
+      teamName: serializer.fromJson<String?>(json['teamName']),
+      alertLevel: $NoticesTable.$converteralertLeveln.fromJson(
+        serializer.fromJson<String?>(json['alertLevel']),
+      ),
+      title: serializer.fromJson<String?>(json['title']),
+      body: serializer.fromJson<String?>(json['body']),
+      issuedAt: serializer.fromJson<DateTime>(json['issuedAt']),
+      expiry: serializer.fromJson<DateTime>(json['expiry']),
+      receivedAt: serializer.fromJson<DateTime>(json['receivedAt']),
+      signedBody: serializer.fromJson<Uint8List>(json['signedBody']),
+      signature: serializer.fromJson<Uint8List>(json['signature']),
+      superseded: serializer.fromJson<bool>(json['superseded']),
+      seen: serializer.fromJson<bool>(json['seen']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'noticeId': serializer.toJson<String>(noticeId),
+      'kind': serializer.toJson<String>(
+        $NoticesTable.$converterkind.toJson(kind),
+      ),
+      'messageId': serializer.toJson<String?>(messageId),
+      'receiptState': serializer.toJson<String?>(
+        $NoticesTable.$converterreceiptStaten.toJson(receiptState),
+      ),
+      'teamName': serializer.toJson<String?>(teamName),
+      'alertLevel': serializer.toJson<String?>(
+        $NoticesTable.$converteralertLeveln.toJson(alertLevel),
+      ),
+      'title': serializer.toJson<String?>(title),
+      'body': serializer.toJson<String?>(body),
+      'issuedAt': serializer.toJson<DateTime>(issuedAt),
+      'expiry': serializer.toJson<DateTime>(expiry),
+      'receivedAt': serializer.toJson<DateTime>(receivedAt),
+      'signedBody': serializer.toJson<Uint8List>(signedBody),
+      'signature': serializer.toJson<Uint8List>(signature),
+      'superseded': serializer.toJson<bool>(superseded),
+      'seen': serializer.toJson<bool>(seen),
+    };
+  }
+
+  StoredNotice copyWith({
+    String? noticeId,
+    NoticeKind? kind,
+    Value<String?> messageId = const Value.absent(),
+    Value<ReceiptState?> receiptState = const Value.absent(),
+    Value<String?> teamName = const Value.absent(),
+    Value<AlertLevel?> alertLevel = const Value.absent(),
+    Value<String?> title = const Value.absent(),
+    Value<String?> body = const Value.absent(),
+    DateTime? issuedAt,
+    DateTime? expiry,
+    DateTime? receivedAt,
+    Uint8List? signedBody,
+    Uint8List? signature,
+    bool? superseded,
+    bool? seen,
+  }) => StoredNotice(
+    noticeId: noticeId ?? this.noticeId,
+    kind: kind ?? this.kind,
+    messageId: messageId.present ? messageId.value : this.messageId,
+    receiptState: receiptState.present ? receiptState.value : this.receiptState,
+    teamName: teamName.present ? teamName.value : this.teamName,
+    alertLevel: alertLevel.present ? alertLevel.value : this.alertLevel,
+    title: title.present ? title.value : this.title,
+    body: body.present ? body.value : this.body,
+    issuedAt: issuedAt ?? this.issuedAt,
+    expiry: expiry ?? this.expiry,
+    receivedAt: receivedAt ?? this.receivedAt,
+    signedBody: signedBody ?? this.signedBody,
+    signature: signature ?? this.signature,
+    superseded: superseded ?? this.superseded,
+    seen: seen ?? this.seen,
+  );
+  StoredNotice copyWithCompanion(NoticesCompanion data) {
+    return StoredNotice(
+      noticeId: data.noticeId.present ? data.noticeId.value : this.noticeId,
+      kind: data.kind.present ? data.kind.value : this.kind,
+      messageId: data.messageId.present ? data.messageId.value : this.messageId,
+      receiptState: data.receiptState.present
+          ? data.receiptState.value
+          : this.receiptState,
+      teamName: data.teamName.present ? data.teamName.value : this.teamName,
+      alertLevel: data.alertLevel.present
+          ? data.alertLevel.value
+          : this.alertLevel,
+      title: data.title.present ? data.title.value : this.title,
+      body: data.body.present ? data.body.value : this.body,
+      issuedAt: data.issuedAt.present ? data.issuedAt.value : this.issuedAt,
+      expiry: data.expiry.present ? data.expiry.value : this.expiry,
+      receivedAt: data.receivedAt.present
+          ? data.receivedAt.value
+          : this.receivedAt,
+      signedBody: data.signedBody.present
+          ? data.signedBody.value
+          : this.signedBody,
+      signature: data.signature.present ? data.signature.value : this.signature,
+      superseded: data.superseded.present
+          ? data.superseded.value
+          : this.superseded,
+      seen: data.seen.present ? data.seen.value : this.seen,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StoredNotice(')
+          ..write('noticeId: $noticeId, ')
+          ..write('kind: $kind, ')
+          ..write('messageId: $messageId, ')
+          ..write('receiptState: $receiptState, ')
+          ..write('teamName: $teamName, ')
+          ..write('alertLevel: $alertLevel, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('issuedAt: $issuedAt, ')
+          ..write('expiry: $expiry, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('signedBody: $signedBody, ')
+          ..write('signature: $signature, ')
+          ..write('superseded: $superseded, ')
+          ..write('seen: $seen')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    noticeId,
+    kind,
+    messageId,
+    receiptState,
+    teamName,
+    alertLevel,
+    title,
+    body,
+    issuedAt,
+    expiry,
+    receivedAt,
+    $driftBlobEquality.hash(signedBody),
+    $driftBlobEquality.hash(signature),
+    superseded,
+    seen,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StoredNotice &&
+          other.noticeId == this.noticeId &&
+          other.kind == this.kind &&
+          other.messageId == this.messageId &&
+          other.receiptState == this.receiptState &&
+          other.teamName == this.teamName &&
+          other.alertLevel == this.alertLevel &&
+          other.title == this.title &&
+          other.body == this.body &&
+          other.issuedAt == this.issuedAt &&
+          other.expiry == this.expiry &&
+          other.receivedAt == this.receivedAt &&
+          $driftBlobEquality.equals(other.signedBody, this.signedBody) &&
+          $driftBlobEquality.equals(other.signature, this.signature) &&
+          other.superseded == this.superseded &&
+          other.seen == this.seen);
+}
+
+class NoticesCompanion extends UpdateCompanion<StoredNotice> {
+  final Value<String> noticeId;
+  final Value<NoticeKind> kind;
+  final Value<String?> messageId;
+  final Value<ReceiptState?> receiptState;
+  final Value<String?> teamName;
+  final Value<AlertLevel?> alertLevel;
+  final Value<String?> title;
+  final Value<String?> body;
+  final Value<DateTime> issuedAt;
+  final Value<DateTime> expiry;
+  final Value<DateTime> receivedAt;
+  final Value<Uint8List> signedBody;
+  final Value<Uint8List> signature;
+  final Value<bool> superseded;
+  final Value<bool> seen;
+  final Value<int> rowid;
+  const NoticesCompanion({
+    this.noticeId = const Value.absent(),
+    this.kind = const Value.absent(),
+    this.messageId = const Value.absent(),
+    this.receiptState = const Value.absent(),
+    this.teamName = const Value.absent(),
+    this.alertLevel = const Value.absent(),
+    this.title = const Value.absent(),
+    this.body = const Value.absent(),
+    this.issuedAt = const Value.absent(),
+    this.expiry = const Value.absent(),
+    this.receivedAt = const Value.absent(),
+    this.signedBody = const Value.absent(),
+    this.signature = const Value.absent(),
+    this.superseded = const Value.absent(),
+    this.seen = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  NoticesCompanion.insert({
+    required String noticeId,
+    required NoticeKind kind,
+    this.messageId = const Value.absent(),
+    this.receiptState = const Value.absent(),
+    this.teamName = const Value.absent(),
+    this.alertLevel = const Value.absent(),
+    this.title = const Value.absent(),
+    this.body = const Value.absent(),
+    required DateTime issuedAt,
+    required DateTime expiry,
+    required DateTime receivedAt,
+    required Uint8List signedBody,
+    required Uint8List signature,
+    this.superseded = const Value.absent(),
+    this.seen = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : noticeId = Value(noticeId),
+       kind = Value(kind),
+       issuedAt = Value(issuedAt),
+       expiry = Value(expiry),
+       receivedAt = Value(receivedAt),
+       signedBody = Value(signedBody),
+       signature = Value(signature);
+  static Insertable<StoredNotice> custom({
+    Expression<String>? noticeId,
+    Expression<String>? kind,
+    Expression<String>? messageId,
+    Expression<String>? receiptState,
+    Expression<String>? teamName,
+    Expression<String>? alertLevel,
+    Expression<String>? title,
+    Expression<String>? body,
+    Expression<DateTime>? issuedAt,
+    Expression<DateTime>? expiry,
+    Expression<DateTime>? receivedAt,
+    Expression<Uint8List>? signedBody,
+    Expression<Uint8List>? signature,
+    Expression<bool>? superseded,
+    Expression<bool>? seen,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (noticeId != null) 'notice_id': noticeId,
+      if (kind != null) 'kind': kind,
+      if (messageId != null) 'message_id': messageId,
+      if (receiptState != null) 'receipt_state': receiptState,
+      if (teamName != null) 'team_name': teamName,
+      if (alertLevel != null) 'alert_level': alertLevel,
+      if (title != null) 'title': title,
+      if (body != null) 'body': body,
+      if (issuedAt != null) 'issued_at': issuedAt,
+      if (expiry != null) 'expiry': expiry,
+      if (receivedAt != null) 'received_at': receivedAt,
+      if (signedBody != null) 'signed_body': signedBody,
+      if (signature != null) 'signature': signature,
+      if (superseded != null) 'superseded': superseded,
+      if (seen != null) 'seen': seen,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  NoticesCompanion copyWith({
+    Value<String>? noticeId,
+    Value<NoticeKind>? kind,
+    Value<String?>? messageId,
+    Value<ReceiptState?>? receiptState,
+    Value<String?>? teamName,
+    Value<AlertLevel?>? alertLevel,
+    Value<String?>? title,
+    Value<String?>? body,
+    Value<DateTime>? issuedAt,
+    Value<DateTime>? expiry,
+    Value<DateTime>? receivedAt,
+    Value<Uint8List>? signedBody,
+    Value<Uint8List>? signature,
+    Value<bool>? superseded,
+    Value<bool>? seen,
+    Value<int>? rowid,
+  }) {
+    return NoticesCompanion(
+      noticeId: noticeId ?? this.noticeId,
+      kind: kind ?? this.kind,
+      messageId: messageId ?? this.messageId,
+      receiptState: receiptState ?? this.receiptState,
+      teamName: teamName ?? this.teamName,
+      alertLevel: alertLevel ?? this.alertLevel,
+      title: title ?? this.title,
+      body: body ?? this.body,
+      issuedAt: issuedAt ?? this.issuedAt,
+      expiry: expiry ?? this.expiry,
+      receivedAt: receivedAt ?? this.receivedAt,
+      signedBody: signedBody ?? this.signedBody,
+      signature: signature ?? this.signature,
+      superseded: superseded ?? this.superseded,
+      seen: seen ?? this.seen,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (noticeId.present) {
+      map['notice_id'] = Variable<String>(noticeId.value);
+    }
+    if (kind.present) {
+      map['kind'] = Variable<String>(
+        $NoticesTable.$converterkind.toSql(kind.value),
+      );
+    }
+    if (messageId.present) {
+      map['message_id'] = Variable<String>(messageId.value);
+    }
+    if (receiptState.present) {
+      map['receipt_state'] = Variable<String>(
+        $NoticesTable.$converterreceiptStaten.toSql(receiptState.value),
+      );
+    }
+    if (teamName.present) {
+      map['team_name'] = Variable<String>(teamName.value);
+    }
+    if (alertLevel.present) {
+      map['alert_level'] = Variable<String>(
+        $NoticesTable.$converteralertLeveln.toSql(alertLevel.value),
+      );
+    }
+    if (title.present) {
+      map['title'] = Variable<String>(title.value);
+    }
+    if (body.present) {
+      map['body'] = Variable<String>(body.value);
+    }
+    if (issuedAt.present) {
+      map['issued_at'] = Variable<DateTime>(issuedAt.value);
+    }
+    if (expiry.present) {
+      map['expiry'] = Variable<DateTime>(expiry.value);
+    }
+    if (receivedAt.present) {
+      map['received_at'] = Variable<DateTime>(receivedAt.value);
+    }
+    if (signedBody.present) {
+      map['signed_body'] = Variable<Uint8List>(signedBody.value);
+    }
+    if (signature.present) {
+      map['signature'] = Variable<Uint8List>(signature.value);
+    }
+    if (superseded.present) {
+      map['superseded'] = Variable<bool>(superseded.value);
+    }
+    if (seen.present) {
+      map['seen'] = Variable<bool>(seen.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('NoticesCompanion(')
+          ..write('noticeId: $noticeId, ')
+          ..write('kind: $kind, ')
+          ..write('messageId: $messageId, ')
+          ..write('receiptState: $receiptState, ')
+          ..write('teamName: $teamName, ')
+          ..write('alertLevel: $alertLevel, ')
+          ..write('title: $title, ')
+          ..write('body: $body, ')
+          ..write('issuedAt: $issuedAt, ')
+          ..write('expiry: $expiry, ')
+          ..write('receivedAt: $receivedAt, ')
+          ..write('signedBody: $signedBody, ')
+          ..write('signature: $signature, ')
+          ..write('superseded: $superseded, ')
+          ..write('seen: $seen, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -1775,6 +2663,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $RelayLogTable relayLog = $RelayLogTable(this);
   late final $GatewayUploadsTable gatewayUploads = $GatewayUploadsTable(this);
   late final $AppSettingsTable appSettings = $AppSettingsTable(this);
+  late final $NoticesTable notices = $NoticesTable(this);
   late final Index relayLogMsgPeer = Index(
     'relay_log_msg_peer',
     'CREATE INDEX relay_log_msg_peer ON relay_log (message_id, relay_device_id)',
@@ -1788,6 +2677,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     relayLog,
     gatewayUploads,
     appSettings,
+    notices,
     relayLogMsgPeer,
   ];
   @override
@@ -2713,6 +3603,411 @@ typedef $$AppSettingsTableProcessedTableManager =
       AppSetting,
       PrefetchHooks Function()
     >;
+typedef $$NoticesTableCreateCompanionBuilder =
+    NoticesCompanion Function({
+      required String noticeId,
+      required NoticeKind kind,
+      Value<String?> messageId,
+      Value<ReceiptState?> receiptState,
+      Value<String?> teamName,
+      Value<AlertLevel?> alertLevel,
+      Value<String?> title,
+      Value<String?> body,
+      required DateTime issuedAt,
+      required DateTime expiry,
+      required DateTime receivedAt,
+      required Uint8List signedBody,
+      required Uint8List signature,
+      Value<bool> superseded,
+      Value<bool> seen,
+      Value<int> rowid,
+    });
+typedef $$NoticesTableUpdateCompanionBuilder =
+    NoticesCompanion Function({
+      Value<String> noticeId,
+      Value<NoticeKind> kind,
+      Value<String?> messageId,
+      Value<ReceiptState?> receiptState,
+      Value<String?> teamName,
+      Value<AlertLevel?> alertLevel,
+      Value<String?> title,
+      Value<String?> body,
+      Value<DateTime> issuedAt,
+      Value<DateTime> expiry,
+      Value<DateTime> receivedAt,
+      Value<Uint8List> signedBody,
+      Value<Uint8List> signature,
+      Value<bool> superseded,
+      Value<bool> seen,
+      Value<int> rowid,
+    });
+
+class $$NoticesTableFilterComposer
+    extends Composer<_$AppDatabase, $NoticesTable> {
+  $$NoticesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get noticeId => $composableBuilder(
+    column: $table.noticeId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<NoticeKind, NoticeKind, String> get kind =>
+      $composableBuilder(
+        column: $table.kind,
+        builder: (column) => ColumnWithTypeConverterFilters(column),
+      );
+
+  ColumnFilters<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<ReceiptState?, ReceiptState, String>
+  get receiptState => $composableBuilder(
+    column: $table.receiptState,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get teamName => $composableBuilder(
+    column: $table.teamName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnWithTypeConverterFilters<AlertLevel?, AlertLevel, String>
+  get alertLevel => $composableBuilder(
+    column: $table.alertLevel,
+    builder: (column) => ColumnWithTypeConverterFilters(column),
+  );
+
+  ColumnFilters<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get issuedAt => $composableBuilder(
+    column: $table.issuedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get expiry => $composableBuilder(
+    column: $table.expiry,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get signedBody => $composableBuilder(
+    column: $table.signedBody,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<Uint8List> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get superseded => $composableBuilder(
+    column: $table.superseded,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get seen => $composableBuilder(
+    column: $table.seen,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$NoticesTableOrderingComposer
+    extends Composer<_$AppDatabase, $NoticesTable> {
+  $$NoticesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get noticeId => $composableBuilder(
+    column: $table.noticeId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get kind => $composableBuilder(
+    column: $table.kind,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageId => $composableBuilder(
+    column: $table.messageId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get receiptState => $composableBuilder(
+    column: $table.receiptState,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get teamName => $composableBuilder(
+    column: $table.teamName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get alertLevel => $composableBuilder(
+    column: $table.alertLevel,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get title => $composableBuilder(
+    column: $table.title,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get body => $composableBuilder(
+    column: $table.body,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get issuedAt => $composableBuilder(
+    column: $table.issuedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get expiry => $composableBuilder(
+    column: $table.expiry,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get signedBody => $composableBuilder(
+    column: $table.signedBody,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<Uint8List> get signature => $composableBuilder(
+    column: $table.signature,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get superseded => $composableBuilder(
+    column: $table.superseded,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get seen => $composableBuilder(
+    column: $table.seen,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$NoticesTableAnnotationComposer
+    extends Composer<_$AppDatabase, $NoticesTable> {
+  $$NoticesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get noticeId =>
+      $composableBuilder(column: $table.noticeId, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<NoticeKind, String> get kind =>
+      $composableBuilder(column: $table.kind, builder: (column) => column);
+
+  GeneratedColumn<String> get messageId =>
+      $composableBuilder(column: $table.messageId, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<ReceiptState?, String> get receiptState =>
+      $composableBuilder(
+        column: $table.receiptState,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get teamName =>
+      $composableBuilder(column: $table.teamName, builder: (column) => column);
+
+  GeneratedColumnWithTypeConverter<AlertLevel?, String> get alertLevel =>
+      $composableBuilder(
+        column: $table.alertLevel,
+        builder: (column) => column,
+      );
+
+  GeneratedColumn<String> get title =>
+      $composableBuilder(column: $table.title, builder: (column) => column);
+
+  GeneratedColumn<String> get body =>
+      $composableBuilder(column: $table.body, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get issuedAt =>
+      $composableBuilder(column: $table.issuedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get expiry =>
+      $composableBuilder(column: $table.expiry, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get receivedAt => $composableBuilder(
+    column: $table.receivedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get signedBody => $composableBuilder(
+    column: $table.signedBody,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<Uint8List> get signature =>
+      $composableBuilder(column: $table.signature, builder: (column) => column);
+
+  GeneratedColumn<bool> get superseded => $composableBuilder(
+    column: $table.superseded,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get seen =>
+      $composableBuilder(column: $table.seen, builder: (column) => column);
+}
+
+class $$NoticesTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $NoticesTable,
+          StoredNotice,
+          $$NoticesTableFilterComposer,
+          $$NoticesTableOrderingComposer,
+          $$NoticesTableAnnotationComposer,
+          $$NoticesTableCreateCompanionBuilder,
+          $$NoticesTableUpdateCompanionBuilder,
+          (
+            StoredNotice,
+            BaseReferences<_$AppDatabase, $NoticesTable, StoredNotice>,
+          ),
+          StoredNotice,
+          PrefetchHooks Function()
+        > {
+  $$NoticesTableTableManager(_$AppDatabase db, $NoticesTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$NoticesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$NoticesTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$NoticesTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> noticeId = const Value.absent(),
+                Value<NoticeKind> kind = const Value.absent(),
+                Value<String?> messageId = const Value.absent(),
+                Value<ReceiptState?> receiptState = const Value.absent(),
+                Value<String?> teamName = const Value.absent(),
+                Value<AlertLevel?> alertLevel = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> body = const Value.absent(),
+                Value<DateTime> issuedAt = const Value.absent(),
+                Value<DateTime> expiry = const Value.absent(),
+                Value<DateTime> receivedAt = const Value.absent(),
+                Value<Uint8List> signedBody = const Value.absent(),
+                Value<Uint8List> signature = const Value.absent(),
+                Value<bool> superseded = const Value.absent(),
+                Value<bool> seen = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NoticesCompanion(
+                noticeId: noticeId,
+                kind: kind,
+                messageId: messageId,
+                receiptState: receiptState,
+                teamName: teamName,
+                alertLevel: alertLevel,
+                title: title,
+                body: body,
+                issuedAt: issuedAt,
+                expiry: expiry,
+                receivedAt: receivedAt,
+                signedBody: signedBody,
+                signature: signature,
+                superseded: superseded,
+                seen: seen,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String noticeId,
+                required NoticeKind kind,
+                Value<String?> messageId = const Value.absent(),
+                Value<ReceiptState?> receiptState = const Value.absent(),
+                Value<String?> teamName = const Value.absent(),
+                Value<AlertLevel?> alertLevel = const Value.absent(),
+                Value<String?> title = const Value.absent(),
+                Value<String?> body = const Value.absent(),
+                required DateTime issuedAt,
+                required DateTime expiry,
+                required DateTime receivedAt,
+                required Uint8List signedBody,
+                required Uint8List signature,
+                Value<bool> superseded = const Value.absent(),
+                Value<bool> seen = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => NoticesCompanion.insert(
+                noticeId: noticeId,
+                kind: kind,
+                messageId: messageId,
+                receiptState: receiptState,
+                teamName: teamName,
+                alertLevel: alertLevel,
+                title: title,
+                body: body,
+                issuedAt: issuedAt,
+                expiry: expiry,
+                receivedAt: receivedAt,
+                signedBody: signedBody,
+                signature: signature,
+                superseded: superseded,
+                seen: seen,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$NoticesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $NoticesTable,
+      StoredNotice,
+      $$NoticesTableFilterComposer,
+      $$NoticesTableOrderingComposer,
+      $$NoticesTableAnnotationComposer,
+      $$NoticesTableCreateCompanionBuilder,
+      $$NoticesTableUpdateCompanionBuilder,
+      (
+        StoredNotice,
+        BaseReferences<_$AppDatabase, $NoticesTable, StoredNotice>,
+      ),
+      StoredNotice,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -2725,4 +4020,6 @@ class $AppDatabaseManager {
       $$GatewayUploadsTableTableManager(_db, _db.gatewayUploads);
   $$AppSettingsTableTableManager get appSettings =>
       $$AppSettingsTableTableManager(_db, _db.appSettings);
+  $$NoticesTableTableManager get notices =>
+      $$NoticesTableTableManager(_db, _db.notices);
 }

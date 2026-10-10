@@ -8,6 +8,8 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mesh_app/api/backend_client.dart';
 import 'package:mesh_app/crypto/backend_public_key.dart';
+import 'package:mesh_app/crypto/hq_signing_key.dart';
+import 'package:mesh_app/crypto/notice_verifier.dart';
 import 'package:mesh_app/db/app_database.dart';
 import 'package:mesh_app/models/emergency_message.dart';
 import 'package:mesh_app/proto/emergency_message.pb.dart' as pb;
@@ -71,6 +73,17 @@ void main() {
     expect(incident['note'], '[TEST] e2e gateway upload');
     expect(incident['latitude'], closeTo(12.9716, 1e-9));
     expect(incident['hopCount'], 2);
+
+    // HQ -> mesh: the gateway fetches the signed DELIVERED receipt, and the
+    // app's verifier accepts HQ's real Ed25519 signature (Kotlin signs, Dart verifies).
+    final feed = await client.fetchNotices(0);
+    final verifier = Ed25519NoticeVerifier.withSodium(host.sodium, base64Decode(hqSigningPublicKeyBase64));
+    final receipt = feed!.notices
+        .map((n) => (n, pb.HqNotice.fromBuffer(n.body)))
+        .firstWhere((e) => e.$2.hasReceipt() && e.$2.receipt.messageId == id);
+    expect(receipt.$2.receipt.status, pb.ReceiptStatus.DELIVERED);
+    expect(verifier.verify(receipt.$1.body, receipt.$1.signature), isTrue,
+        reason: 'backend key and app key differ: run ./gradlew genKeys, rebuild the app');
     await db.close();
   }, skip: skip);
 }

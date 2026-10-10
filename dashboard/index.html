@@ -23,6 +23,7 @@
     </div>
     <div class="stats" id="stats" aria-live="polite"></div>
     <div class="controls">
+      <button class="broadcast" id="open-alerts" hidden>Broadcast alert</button>
       <label class="toggle"><input type="checkbox" id="show-resolved"> Show resolved</label>
       <span class="updated" id="updated">Not loaded</span>
       <button class="ghost" id="logout" hidden>Log out</button>
@@ -57,6 +58,40 @@
   </main>
 
   <div class="toast-stack" id="toasts" aria-live="assertive"></div>
+
+  <!-- HQ -> mesh broadcast. Gateways fetch it, phones relay it, each phone verifies HQ's signature. -->
+  <div class="login" id="alerts-modal" hidden>
+    <div class="login-card alerts-card" role="dialog" aria-labelledby="alerts-title">
+      <header class="alerts-head">
+        <h2 id="alerts-title">Broadcast to every phone</h2>
+        <button class="close" id="close-alerts" title="Close">&times;</button>
+      </header>
+      <p>Gateway phones pick this up and relay it through the mesh, so it reaches phones with
+        no internet. Each phone checks HQ's signature, so nobody can fake one.</p>
+      <form id="alert-form" class="alert-form">
+        <div class="levels" role="radiogroup" aria-label="Level">
+          <label><input type="radio" name="level" value="INFO"> Info</label>
+          <label><input type="radio" name="level" value="WARNING" checked> Warning</label>
+          <label><input type="radio" name="level" value="CRITICAL"> Critical</label>
+        </div>
+        <label>Title <input id="alert-title" maxlength="60" required placeholder="e.g. Shelter open at City School"></label>
+        <label>Message <span class="count" id="alert-count">0 / 280</span>
+          <textarea id="alert-message" maxlength="280" rows="3" required
+                    placeholder="What people should do, and where."></textarea></label>
+        <label>Valid for
+          <select id="alert-valid">
+            <option value="30">30 minutes</option>
+            <option value="60">1 hour</option>
+            <option value="360" selected>6 hours</option>
+            <option value="1440">24 hours</option>
+          </select></label>
+        <p class="error" id="alert-error" hidden></p>
+        <button type="submit" class="broadcast">Send to the mesh</button>
+      </form>
+      <div class="section-title">Recent broadcasts</div>
+      <ol class="alert-history" id="alert-history"></ol>
+    </div>
+  </div>
 
   <div class="login" id="login" hidden>
     <form class="login-card" id="login-form">

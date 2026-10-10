@@ -6,7 +6,9 @@ import '../crypto/message_crypto.dart';
 import '../mesh/gateway_detector.dart';
 import '../mesh/mesh_controller.dart';
 import '../mesh/nearby_service.dart';
+import '../mesh/power_policy.dart';
 import '../mesh/relay_manager.dart';
+import '../services/power_manager.dart';
 
 /// Nearby Devices screen (SRS 3.3): active mesh connections, relay
 /// statistics, and the relay/connection logs used as test evidence.
@@ -60,6 +62,8 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> {
             ),
           const _Header('Gateway (FR-8, FR-9)'),
           const _GatewayCard(),
+          const _Header('Battery-aware relaying'),
+          const _PowerCard(),
           const _Header('Relay statistics'),
           Wrap(spacing: 8, runSpacing: 8, children: [
             _Stat('received', s.received),
@@ -69,6 +73,10 @@ class _NearbyDevicesScreenState extends State<NearbyDevicesScreen> {
             _Stat('hop-limit dropped', s.hopLimitDropped),
             _Stat('malformed', s.malformed),
             _Stat('queue', relay.queueLength),
+            _Stat('HQ notices received', s.noticesReceived),
+            _Stat('forged notices dropped', s.forgedDropped),
+            _Stat('stopped: HQ has it', s.deliveredElsewhere),
+            _Stat('skipped to save battery', s.powerSkipped),
           ]),
           const _Header('Test settings'),
           SwitchListTile(
@@ -124,6 +132,7 @@ class _GatewayCard extends StatelessWidget {
                 : 'Not a gateway: HQ not reachable'),
             subtitle: Text('${gw.settings.baseUrl} · $checked\n'
                 'Delivered to HQ from this phone: ${gw.deliveredTotal}'
+                ' · receipts/alerts brought into the mesh: ${gw.noticesFetched}'
                 '${run?.stoppedBecause != null ? '\nLast upload stopped: ${run!.stoppedBecause}' : ''}'),
             isThreeLine: true,
             trailing: gw.isUploading ? const CircularProgressIndicator() : null,
@@ -165,6 +174,54 @@ class _GatewayCard extends StatelessWidget {
     if (save == true) await gw.updateSettings(url.text, key.text);
     url.dispose();
     key.dispose();
+  }
+}
+
+class _PowerCard extends StatelessWidget {
+  const _PowerCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final power = context.watch<PowerManager>();
+    final scanPaused = context.select<NearbyService, bool>((n) => n.scanPaused);
+    final level = power.batteryLevel;
+    final battery = level == null
+        ? 'Battery level unknown'
+        : 'Battery $level%${power.charging ? ', charging' : ''}';
+    final mode = power.mode;
+    final color = switch (mode) {
+      PowerMode.normal => Colors.green,
+      PowerMode.saver => Colors.orange,
+      PowerMode.critical => Colors.red,
+    };
+    return Card(
+      child: Column(children: [
+        ListTile(
+          leading: Icon(
+            mode == PowerMode.normal ? Icons.battery_full : Icons.battery_saver,
+            color: color,
+          ),
+          title: Text('${mode.label}${power.forcedMode == null ? ' (auto)' : ' (forced)'}'),
+          subtitle: Text('$battery\n${mode.description}'
+              '${scanPaused ? '\nScan paused right now to save battery' : ''}'),
+          isThreeLine: true,
+        ),
+        ListTile(
+          dense: true,
+          title: const Text('Mode'),
+          subtitle: Text('Auto: saver at ${PowerMode.saverBelow}% or less, '
+              'critical at ${PowerMode.criticalBelow}% or less'),
+          trailing: DropdownButton<PowerMode?>(
+            value: power.forcedMode,
+            items: [
+              const DropdownMenuItem(value: null, child: Text('Auto')),
+              for (final m in PowerMode.values) DropdownMenuItem(value: m, child: Text(m.label)),
+            ],
+            onChanged: power.setForcedMode,
+          ),
+        ),
+      ]),
+    );
   }
 }
 

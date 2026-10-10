@@ -43,11 +43,19 @@ class NearbyService extends ChangeNotifier implements MeshTransport {
   bool _running = false;
   Timer? _restartTimer;
 
+  // Battery saver: discovery (the expensive scan) runs only part of the time.
+  (Duration, Duration)? _dutyCycle;
+  Timer? _dutyTimer;
+  bool _scanPaused = false;
+
   bool get isRunning => _running;
   List<Peer> get peers => _peers.values.toList(growable: false);
   List<Peer> get connectedPeers =>
       _peers.values.where((p) => p.state == PeerState.connected).toList();
   List<String> get log => List.unmodifiable(_log);
+
+  /// True while battery saver has the discovery scan switched off.
+  bool get scanPaused => _scanPaused;
 
   @override
   List<MeshPeer> get connectedMeshPeers =>
@@ -66,12 +74,15 @@ class NearbyService extends ChangeNotifier implements MeshTransport {
     _addLog('Starting as $localId');
     await _startAdvertising();
     await _startDiscovery();
+    _scheduleDuty(scanning: true);
     notifyListeners();
   }
 
   Future<void> stop() async {
     _running = false;
     _restartTimer?.cancel();
+    _dutyTimer?.cancel();
+    _scanPaused = false;
     await _nearby.stopAdvertising();
     await _nearby.stopDiscovery();
     await _nearby.stopAllEndpoints();
@@ -106,7 +117,43 @@ class NearbyService extends ChangeNotifier implements MeshTransport {
     }
   }
 
+  /// Battery saver: scan for the first duration, pause for the second, repeat. Null
+  /// means scan all the time. Advertising stays on, so other phones can still
+  /// find and connect to this one while its own scan is paused.
+  Future<void> setDiscoveryDutyCycle((Duration, Duration)? cycle) async {
+    if (cycle == _dutyCycle) return;
+    _dutyCycle = cycle;
+    _dutyTimer?.cancel();
+    if (!_running) return;
+    if (_scanPaused) {
+      _scanPaused = false;
+      await _startDiscovery();
+    }
+    _addLog(cycle == null
+        ? 'Scanning continuously'
+        : 'Battery saver: scanning ${cycle.$1.inSeconds}s, pausing ${cycle.$2.inSeconds}s');
+    _scheduleDuty(scanning: true);
+    notifyListeners();
+  }
+
+  void _scheduleDuty({required bool scanning}) {
+    final cycle = _dutyCycle;
+    if (cycle == null || !_running) return;
+    _dutyTimer = Timer(scanning ? cycle.$1 : cycle.$2, () async {
+      if (!_running || _dutyCycle != cycle) return;
+      _scanPaused = scanning;
+      if (scanning) {
+        await _nearby.stopDiscovery();
+      } else {
+        await _startDiscovery();
+      }
+      notifyListeners();
+      _scheduleDuty(scanning: !scanning);
+    });
+  }
+
   Future<void> _startDiscovery() async {
+    if (_scanPaused) return; // battery saver; the duty timer resumes it
     try {
       await _nearby.startDiscovery(
         localId,
@@ -228,6 +275,7 @@ class NearbyService extends ChangeNotifier implements MeshTransport {
   @override
   void dispose() {
     _restartTimer?.cancel();
+    _dutyTimer?.cancel();
     _incoming.close();
     _peerConnected.close();
     super.dispose();

@@ -8,12 +8,38 @@ shows each message on a live map for responders.
 
 | Folder | What | Tech |
 |---|---|---|
-| `mesh_app/` | Android app: send, relay, encrypt, gateway upload (FR-1 to FR-9) | Flutter, nearby_connections, drift, sodium_libs, dio, protobuf |
-| `backend/` | HQ API: receives uploads, creates incidents (FR-9, FR-10) | Spring Boot 4 (Kotlin), JPA, PostgreSQL/H2, Spring Security, lazysodium |
-| `dashboard/` | Responder map: view, assign team, update status (FR-11 to FR-13) | HTML/JS + Leaflet, served by the backend |
+| `mesh_app/` | Android app: send, relay, encrypt, gateway upload (FR-1 to FR-9), receipts, HQ alerts, battery-aware relaying | Flutter, nearby_connections, drift, sodium_libs, dio, protobuf |
+| `backend/` | HQ API: receives uploads, creates incidents (FR-9, FR-10), issues signed receipts and alerts | Spring Boot 4 (Kotlin), JPA, PostgreSQL/H2, Spring Security, lazysodium |
+| `dashboard/` | Responder map: view, assign team, update status (FR-11 to FR-13), broadcast alerts | HTML/JS + Leaflet, served by the backend |
 | `proto/` | Wire format shared by app and backend | Protocol Buffers |
 
 The design documents (SRS, UML diagrams, reports) are kept outside this repository.
+
+## Two-way mesh: receipts, alerts, battery
+
+The mesh also carries messages **from** HQ back to the phones:
+
+- **Delivery receipts.** When a message reaches HQ, the sender's phone shows
+  *Delivered to HQ*, then *Seen by responders · Medical Team Alpha*, then
+  *Resolved*, as responders work the incident. Relay phones that receive the
+  receipt stop carrying that message, which cuts mesh traffic.
+- **Broadcast alerts.** Responders send an alert from the dashboard (Info,
+  Warning or Critical). Gateway phones fetch it and every phone relays it, so it
+  reaches phones with no internet. It shows in the app's Alerts tab, as a phone
+  notification, and (Warning/Critical) as a banner on the Send screen.
+- **HQ signs both** with Ed25519. Phones verify the signature before showing or
+  relaying anything, so no phone can fake "help is coming" or an evacuation
+  order. The signing key is derived from `MESH_PRIVATE_KEY`, so there's no new
+  secret to deploy. `./gradlew genKeys` writes its public half to
+  `mesh_app/lib/crypto/hq_signing_key.dart` (safe to re-run; it never replaces
+  an existing key).
+- **Battery-aware relaying.** At 30% or less a phone relays only Medical and
+  Trapped for others and scans half the time; at 15% or less it sends only its
+  own SOS and scans 20 s every 2 minutes. Receipts and alerts always get through.
+  The Mesh tab shows the mode and can force one for a demo.
+
+Update the app on **every** phone: older versions can't read receipts or alerts
+(they ignore them safely).
 
 ## Tests
 
@@ -65,6 +91,10 @@ cd mesh_app && flutter test      # 24 tests: relay on a simulated 3-phone mesh,
 | Deduplication (FR-5) | Mesh tab counter "duplicates dropped" |
 | TTL (FR-6) | Mesh tab → Short TTL (2 min): the message turns *expired* and stops relaying |
 | Priority (FR-7) | `flutter test test/relay_manager_test.dart`: MEDICAL overtakes 6 queued STATUS; FIFO leaves it last |
+| Delivery receipts | After C uploads, A's Messages tab shows *Delivered to HQ*. Assign a team on the dashboard, tap *Check / upload now* on C: A shows *Seen by responders · team*. B's Mesh tab: "stopped: HQ has it" |
+| HQ broadcast | Dashboard → *Broadcast alert* → Critical. Within one gateway check (30 s, or *Check / upload now*) A and B get a notification and a red banner, with no internet |
+| Can't be faked | Mesh tab counter "forged notices dropped"; `flutter test test/notice_relay_test.dart` |
+| Battery saver | B's Mesh tab → Battery-aware relaying → *Battery saver*. Send STATUS from A: it stops at B ("skipped to save battery"). Send MEDICAL: it still gets through |
 
 Without phones, `cd backend && ./gradlew seedDemo` posts sealed incidents
 marked **[TEST]** through the same gateway API, which is useful for rehearsing

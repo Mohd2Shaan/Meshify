@@ -16,7 +16,7 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 
 /**
  * - GET /api/health: public (gateway detection, FR-8).
- * - POST /api/messages: gateway phones, via X-API-Key (ROLE_GATEWAY).
+ * - POST /api/messages, GET /api/notices: gateway phones, via X-API-Key (ROLE_GATEWAY).
  * - Everything else under /api: responders, via HTTP Basic (ROLE_RESPONDER).
  *   Incident data contains victims' locations, so it is never public (SRS 5.3).
  * - Anything else (dashboard page, H2 console in dev): open. The dashboard
@@ -51,6 +51,7 @@ class SecurityConfig {
 			.authorizeHttpRequests {
 				it.requestMatchers(HttpMethod.GET, "/api/health").permitAll()
 				it.requestMatchers(HttpMethod.POST, "/api/messages").hasRole("GATEWAY")
+				it.requestMatchers(HttpMethod.GET, "/api/notices").hasRole("GATEWAY")
 				it.requestMatchers("/api/**").hasRole("RESPONDER")
 				it.anyRequest().permitAll()
 			}

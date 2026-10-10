@@ -11,6 +11,9 @@
   --RESOLVED: #9aa3ad;
   --PENDING: #d32f2f;
   --ACKNOWLEDGED: #1565c0;
+  --INFO: #1565c0;
+  --WARNING: #e65100;
+  --CRITICAL: #b71c1c;
   --radius: 10px;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   color: var(--ink);
@@ -155,3 +158,28 @@ select, input { font: inherit; padding: 7px 9px; border: 1px solid var(--line); 
   .sidebar { border-right: 0; border-top: 1px solid var(--line); }
   .detail { top: auto; bottom: 12px; }
 }
+
+/* ---- HQ broadcast alerts ------------------------------------------------- */
+button.broadcast { background: var(--accent); }
+.alerts-card { width: 460px; max-height: calc(100vh - 40px); overflow-y: auto; }
+.alerts-head { display: flex; justify-content: space-between; align-items: center; }
+.alerts-head .close { background: transparent; color: var(--muted); padding: 0 4px; font-size: 22px; line-height: 1; }
+.alert-form { display: flex; flex-direction: column; gap: 10px; }
+.alert-form label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.alert-form textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; resize: vertical; }
+.alert-form .count { align-self: flex-end; margin-top: -18px; color: var(--muted); font-size: 12px; }
+.alert-form .error { color: var(--HIGH); font-size: 13px; }
+.levels { display: flex; gap: 8px; }
+.levels label { flex-direction: row; align-items: center; gap: 6px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.levels label:has(input:checked) { border-color: var(--ink); background: var(--bg); font-weight: 600; }
+.section-title { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+.alert-history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.alert-history li { border: 1px solid var(--line); border-left: 5px solid var(--lvl); border-radius: 8px; padding: 8px 10px; font-size: 13px; }
+.alert-history li.expired { opacity: .55; }
+.alert-history .row { display: flex; justify-content: space-between; gap: 8px; }
+.alert-history .lvl { font-weight: 700; color: var(--lvl); font-size: 11px; letter-spacing: .04em; }
+.alert-history .msg { margin: 3px 0; overflow-wrap: anywhere; }
+.alert-history .state { font-size: 12px; color: var(--muted); }
+.alert-history .state.live { color: #2e7d32; }
+.receipt-live { color: #2e7d32; }
+.receipt-wait { color: var(--MEDIUM); }

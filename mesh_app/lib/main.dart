@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'config.dart';
 import 'crypto/message_crypto.dart';
+import 'crypto/notice_verifier.dart';
 import 'db/app_database.dart';
 import 'mesh/gateway_detector.dart';
 import 'mesh/mesh_controller.dart';
@@ -12,6 +15,7 @@ import 'services/background_service.dart';
 import 'services/emergency_sender.dart';
 import 'services/gateway_uploader.dart';
 import 'services/location_service.dart';
+import 'services/power_manager.dart';
 import 'ui/setup_screen.dart';
 
 /// Runs once per app process, in the engine MeshApplication.kt creates. That
@@ -24,9 +28,17 @@ Future<void> main() async {
   final deviceId = await db.getOrCreateDeviceId();
   final config = MeshConfig();
   final MessageCrypto crypto = await SealedBoxCrypto.create(); // FR-3
+  final NoticeVerifier verifier = await Ed25519NoticeVerifier.create(); // HQ receipts/alerts
   final nearby = NearbyService(localId: deviceId);
-  final relay = RelayManager(db: db, transport: nearby, config: config)..start();
+  final relay =
+      RelayManager(db: db, transport: nearby, verifier: verifier, config: config)..start();
   final background = BackgroundService();
+  relay.newAlerts.listen((a) => unawaited(background.showHqAlert(
+        id: a.noticeId,
+        level: a.alertLevel!.label,
+        title: a.title!,
+        body: a.body!,
+      )));
   final controller = MeshController(db: db, nearby: nearby, service: background);
   final sender = EmergencySender(
     db: db,
@@ -40,9 +52,19 @@ Future<void> main() async {
     db: db,
     uploader: GatewayUploader(db: db, deviceId: deviceId),
     service: background,
+    deliverNotice: relay.acceptFromHq,
+  );
+  final power = PowerManager(
+    db: db,
+    service: background,
+    onModeChanged: (mode) {
+      relay.powerMode = mode;
+      unawaited(nearby.setDiscoveryDutyCycle(mode.discoveryDutyCycle));
+    },
   );
   await controller.init();
   await gateway.init();
+  await power.init();
 
   runApp(
     MultiProvider(
@@ -56,6 +78,7 @@ Future<void> main() async {
         ChangeNotifierProvider.value(value: relay),
         ChangeNotifierProvider.value(value: controller),
         ChangeNotifierProvider.value(value: gateway),
+        ChangeNotifierProvider.value(value: power),
       ],
       child: const MeshApp(),
     ),

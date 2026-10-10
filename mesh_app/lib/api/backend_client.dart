@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 
@@ -43,6 +44,23 @@ class UploadResult {
   final String? uploadId;
   final String? ackStatus;
   final String? detail;
+}
+
+/// A signed notice exactly as HQ issued it (see SignedNotice in the .proto).
+class FetchedNotice {
+  FetchedNotice(this.noticeId, this.body, this.signature);
+
+  final String noticeId;
+  final Uint8List body;
+  final Uint8List signature;
+}
+
+class NoticeFeed {
+  NoticeFeed(this.serverTimeMs, this.notices);
+
+  /// Pass back as `since` next time.
+  final int serverTimeMs;
+  final List<FetchedNotice> notices;
 }
 
 /// REST client for the Spring Boot backend (FR-8 health check, FR-9 upload).
@@ -102,5 +120,25 @@ class BackendClient {
       401 || 403 => UploadResult(UploadOutcome.unauthorized, detail: 'API key refused'),
       _ => UploadResult(UploadOutcome.retryLater, detail: 'HTTP ${res.statusCode}'),
     };
+  }
+
+  /// Receipts and alerts for the mesh issued since [sinceMs] (server clock).
+  /// Null if the backend can't be reached or refuses the API key.
+  Future<NoticeFeed?> fetchNotices(int sinceMs) async {
+    try {
+      final res = await _dio.get<Object>('/api/notices', queryParameters: {'since': sinceMs});
+      if (res.statusCode != 200 || res.data is! Map) return null;
+      final body = res.data! as Map;
+      return NoticeFeed(
+        (body['serverTimeMs'] as num).toInt(),
+        [
+          for (final n in body['notices'] as List)
+            FetchedNotice(n['noticeId'] as String, base64Decode(n['body'] as String),
+                base64Decode(n['signature'] as String)),
+        ],
+      );
+    } on DioException {
+      return null;
+    }
   }
 }

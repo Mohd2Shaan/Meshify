@@ -4,6 +4,7 @@ import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
 import '../models/emergency_message.dart';
+import '../models/hq_notice.dart';
 
 part 'app_database.g.dart';
 
@@ -63,6 +64,41 @@ class GatewayUploads extends Table {
   Set<Column> get primaryKey => {uploadId};
 }
 
+/// Notices from HQ (delivery receipts, broadcast alerts) this phone holds and
+/// relays. [signedBody] and [signature] are kept byte-for-byte as HQ signed
+/// them, so they can be passed on unchanged; the other columns are the
+/// decoded content for display.
+@DataClassName('StoredNotice')
+class Notices extends Table {
+  TextColumn get noticeId => text()();
+  TextColumn get kind => textEnum<NoticeKind>()();
+
+  /// Receipts: which message, what happened to it, and the team (if any).
+  TextColumn get messageId => text().nullable()();
+  TextColumn get receiptState => textEnum<ReceiptState>().nullable()();
+  TextColumn get teamName => text().nullable()();
+
+  /// Alerts.
+  TextColumn get alertLevel => textEnum<AlertLevel>().nullable()();
+  TextColumn get title => text().nullable()();
+  TextColumn get body => text().nullable()();
+
+  DateTimeColumn get issuedAt => dateTime()();
+  DateTimeColumn get expiry => dateTime()();
+  DateTimeColumn get receivedAt => dateTime()();
+  BlobColumn get signedBody => blob()();
+  BlobColumn get signature => blob()();
+
+  /// A newer receipt for the same message exists, so this one isn't relayed.
+  BoolColumn get superseded => boolean().withDefault(const Constant(false))();
+
+  /// Alerts: the user has opened the Alerts tab since it arrived.
+  BoolColumn get seen => boolean().withDefault(const Constant(false))();
+
+  @override
+  Set<Column> get primaryKey => {noticeId};
+}
+
 /// Local key/value settings (this phone's deviceId).
 class AppSettings extends Table {
   TextColumn get key => text()();
@@ -72,14 +108,21 @@ class AppSettings extends Table {
   Set<Column> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [Messages, RelayLog, GatewayUploads, AppSettings])
+@DriftDatabase(tables: [Messages, RelayLog, GatewayUploads, AppSettings, Notices])
 class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(driftDatabase(name: 'emergency_mesh'));
 
   AppDatabase.forTesting(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onUpgrade: (m, from, to) async {
+          if (from < 2) await m.createTable(notices); // v2: HQ receipts and alerts
+        },
+      );
 
   // ---- Device identity -----------------------------------------------------
 
@@ -187,6 +230,74 @@ class AppDatabase extends _$AppDatabase {
   Future<GatewayUploadEntry?> uploadFor(String messageId) =>
       (select(gatewayUploads)..where((u) => u.messageId.equals(messageId))..limit(1))
           .getSingleOrNull();
+
+  // ---- HQ notices (receipts, alerts) -------------------------------------------
+
+  Future<StoredNotice?> getNotice(String id) =>
+      (select(notices)..where((n) => n.noticeId.equals(id))).getSingleOrNull();
+
+  Future<bool> noticeExists(String id) async => await getNotice(id) != null;
+
+  /// Stores a verified notice. A receipt replaces any older receipt for the
+  /// same message (only the newest is relayed); an out-of-date one arriving
+  /// late is stored as superseded, so it still counts as seen for FR-5.
+  Future<void> insertNotice(NoticesCompanion n) => transaction(() async {
+        final messageId = n.messageId.present ? n.messageId.value : null;
+        var row = n;
+        if (n.kind.value == NoticeKind.receipt && messageId != null) {
+          final newer = await (select(notices)
+                ..where((o) =>
+                    o.messageId.equals(messageId) &
+                    o.kind.equalsValue(NoticeKind.receipt) &
+                    o.issuedAt.isBiggerOrEqualValue(n.issuedAt.value))
+                ..limit(1))
+              .getSingleOrNull();
+          if (newer != null) {
+            row = n.copyWith(superseded: const Value(true));
+          } else {
+            await (update(notices)
+                  ..where((o) =>
+                      o.messageId.equals(messageId) & o.kind.equalsValue(NoticeKind.receipt)))
+                .write(const NoticesCompanion(superseded: Value(true)));
+          }
+        }
+        await into(notices).insert(row);
+      });
+
+  /// Notices this phone should still pass on.
+  Future<List<StoredNotice>> forwardableNotices(DateTime now) {
+    return (select(notices)
+          ..where((n) => n.expiry.isBiggerThanValue(now) & n.superseded.equals(false)))
+        .get();
+  }
+
+  /// Latest receipt per message, for the sender's Messages tab.
+  Stream<Map<String, StoredNotice>> watchReceipts() {
+    return (select(notices)
+          ..where((n) => n.kind.equalsValue(NoticeKind.receipt) & n.superseded.equals(false)))
+        .watch()
+        .map((rows) => {for (final r in rows) r.messageId!: r});
+  }
+
+  Stream<List<StoredNotice>> watchAlerts() {
+    return (select(notices)
+          ..where((n) => n.kind.equalsValue(NoticeKind.alert))
+          ..orderBy([(n) => OrderingTerm.desc(n.issuedAt)]))
+        .watch();
+  }
+
+  Stream<int> watchUnseenAlertCount() {
+    final count = notices.noticeId.count();
+    return (selectOnly(notices)
+          ..addColumns([count])
+          ..where(notices.kind.equalsValue(NoticeKind.alert) & notices.seen.equals(false)))
+        .map((r) => r.read(count) ?? 0)
+        .watchSingle();
+  }
+
+  Future<void> markAlertsSeen() =>
+      (update(notices)..where((n) => n.kind.equalsValue(NoticeKind.alert) & n.seen.equals(false)))
+          .write(const NoticesCompanion(seen: Value(true)));
 
   // ---- D2 RelayLog -------------------------------------------------------------
 

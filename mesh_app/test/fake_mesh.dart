@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value, driftRuntimeOptions;
 import 'package:drift/native.dart';
+import 'package:fixnum/fixnum.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:mesh_app/config.dart';
+import 'package:mesh_app/crypto/notice_verifier.dart';
 import 'package:mesh_app/db/app_database.dart';
 import 'package:mesh_app/mesh/mesh_transport.dart';
 import 'package:mesh_app/mesh/priority.dart';
@@ -18,7 +22,9 @@ class FakeNode implements MeshTransport {
       : config = config ?? MeshConfig() {
     driftRuntimeOptions.dontWarnAboutMultipleDatabases = true;
     db = AppDatabase.forTesting(NativeDatabase.memory());
-    relay = RelayManager(db: db, transport: this, config: this.config, clock: clock)..start();
+    relay = RelayManager(
+        db: db, transport: this, verifier: FakeHq.verifier, config: this.config, clock: clock)
+      ..start();
   }
 
   @override
@@ -29,7 +35,7 @@ class FakeNode implements MeshTransport {
 
   final Map<String, FakeNode> links = {};
 
-  /// Message IDs this node received over the air, in arrival order.
+  /// Message and notice IDs this node received over the air, in arrival order.
   final List<String> arrivals = [];
 
   final _incoming = StreamController<ReceivedPayload>.broadcast();
@@ -50,7 +56,10 @@ class FakeNode implements MeshTransport {
     final target = links[endpointId];
     if (target == null) return;
     Timer.run(() {
-      target.arrivals.add(pb.MeshPacket.fromBuffer(bytes).messageId);
+      final frame = pb.MeshFrame.fromBuffer(bytes);
+      target.arrivals.add(frame.hasNotice()
+          ? pb.HqNotice.fromBuffer(frame.notice.body).noticeId
+          : pb.MeshPacket.fromBuffer(bytes).messageId);
       target._incoming.add(ReceivedPayload(localId, localId, bytes));
     });
   }
@@ -122,4 +131,54 @@ Future<String> createMessage(
   ));
   await node.relay.originate(id);
   return id;
+}
+
+/// Stands in for HQ's Ed25519 key in relay tests: "signs" with a checksum
+/// only FakeHq.verifier accepts, so forged/altered notices can be tested too.
+/// The real signature is tested in crypto_interop_test.dart.
+class FakeHq {
+  static final NoticeVerifier verifier = _FakeVerifier();
+
+  static Uint8List sign(Uint8List body) {
+    final sum = body.fold<int>(7, (a, b) => (a * 31 + b) & 0x7fffffff);
+    return Uint8List.fromList(utf8.encode('HQ-SIG:$sum'));
+  }
+
+  static Uint8List _notice(pb.HqNotice n) => n.writeToBuffer();
+
+  static (Uint8List, Uint8List) receipt(String messageId,
+      {pb.ReceiptStatus status = pb.ReceiptStatus.DELIVERED,
+      String team = '',
+      DateTime? issued,
+      Duration ttl = const Duration(hours: 6)}) {
+    final t = issued ?? DateTime.now();
+    final body = _notice(pb.HqNotice(
+      noticeId: 'r-$messageId-${status.name}-${t.microsecondsSinceEpoch}',
+      issuedAtMs: Int64(t.millisecondsSinceEpoch),
+      expiryMs: Int64(t.add(ttl).millisecondsSinceEpoch),
+      receipt: pb.DeliveryReceipt(messageId: messageId, status: status, teamName: team),
+    ));
+    return (body, sign(body));
+  }
+
+  static (Uint8List, Uint8List) alert(String title,
+      {pb.AlertLevel level = pb.AlertLevel.CRITICAL, Duration ttl = const Duration(hours: 1)}) {
+    final t = DateTime.now();
+    final body = _notice(pb.HqNotice(
+      noticeId: 'a-$title-${t.microsecondsSinceEpoch}',
+      issuedAtMs: Int64(t.millisecondsSinceEpoch),
+      expiryMs: Int64(t.add(ttl).millisecondsSinceEpoch),
+      alert: pb.HqAlert(level: level, title: title, body: 'Body of $title'),
+    ));
+    return (body, sign(body));
+  }
+
+  /// Wraps a notice for [FakeNode.inject], as a phone sends it.
+  static Uint8List frame((Uint8List, Uint8List) n) =>
+      pb.MeshFrame(notice: pb.SignedNotice(body: n.$1, signature: n.$2)).writeToBuffer();
+}
+
+class _FakeVerifier implements NoticeVerifier {
+  @override
+  bool verify(Uint8List body, Uint8List signature) => listEquals(signature, FakeHq.sign(body));
 }

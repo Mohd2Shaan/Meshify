@@ -36,6 +36,7 @@ class MessageIngestionService(
 	private val uploads: GatewayUploadRepository,
 	private val incidents: IncidentRecordRepository,
 	private val decryptor: PayloadDecryptor,
+	private val notices: NoticeService,
 	private val clock: Clock,
 ) {
 	@Transactional
@@ -81,6 +82,7 @@ class MessageIngestionService(
 				updatedAt = now,
 			),
 		)
+		notices.issueReceipt(incident) // tells the sender, through the mesh, that it arrived
 		val upload = recordUpload(req.messageId, gateway, now, BackendAckStatus.ACKNOWLEDGED)
 		return UploadResponse(upload.uploadId, req.messageId, BackendAckStatus.ACKNOWLEDGED, incident.incidentId)
 	}

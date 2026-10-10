@@ -38,3 +38,62 @@ message EmergencyPayload {
   double longitude = 2;
   string note = 3;            // optional short note (SRS 3.3)
 }
+
+// ---- HQ -> mesh (delivery receipts, broadcast alerts) -----------------------
+//
+// Emergency messages still travel as a bare MeshPacket, exactly as before.
+// HQ notices travel wrapped in a MeshFrame. MeshPacket only uses fields 1-7,
+// so a MeshPacket read as a MeshFrame never has `notice` set: a receiver reads
+// every payload as a MeshFrame first and falls back to MeshPacket. Older app
+// versions read a MeshFrame as an empty, invalid MeshPacket and drop it.
+message MeshFrame {
+  SignedNotice notice = 101;
+}
+
+// A notice from Headquarters, relayed verbatim. `body` is a serialized
+// HqNotice and `signature` its Ed25519 signature by HQ. Phones verify it
+// against the HQ key baked into the app and drop anything that fails, so no
+// phone can forge a receipt or an alert.
+message SignedNotice {
+  bytes body = 1;
+  bytes signature = 2;
+}
+
+message HqNotice {
+  string notice_id = 1;
+  int64 issued_at_ms = 2;
+  int64 expiry_ms = 3;        // like a message TTL: stop relaying after this
+  oneof kind {
+    DeliveryReceipt receipt = 10;
+    HqAlert alert = 11;
+  }
+}
+
+// Tells the sender what happened to their message. Relay phones that still
+// carry the message also stop forwarding it: it has arrived.
+message DeliveryReceipt {
+  string message_id = 1;
+  ReceiptStatus status = 2;
+  string team_name = 3;       // set once a responder team is assigned
+}
+
+enum ReceiptStatus {
+  RECEIPT_STATUS_UNSPECIFIED = 0;
+  DELIVERED = 1;              // reached HQ, incident created
+  ACKNOWLEDGED = 2;           // a responder has seen it
+  RESOLVED = 3;
+}
+
+// A broadcast from responders to everyone in the mesh.
+message HqAlert {
+  AlertLevel level = 1;
+  string title = 2;
+  string body = 3;
+}
+
+enum AlertLevel {
+  ALERT_LEVEL_UNSPECIFIED = 0;
+  INFO = 1;
+  WARNING = 2;
+  CRITICAL = 3;
+}
