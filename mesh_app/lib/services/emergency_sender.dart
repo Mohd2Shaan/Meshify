@@ -19,11 +19,14 @@ class InvalidMessage implements Exception {
 }
 
 class SendResult {
-  SendResult(this.message, this.peersQueued, this.usedCachedLocation);
+  SendResult(this.message, this.peersQueued, this.usedCachedLocation, {this.locationAge = Duration.zero});
 
   final StoredMessage message;
   final int peersQueued;
   final bool usedCachedLocation;
+
+  /// How old the location was, when [usedCachedLocation].
+  final Duration locationAge;
 }
 
 /// DFD processes 1.0 (Create & Validate) and 2.0 (Encrypt), then hands off
@@ -87,6 +90,6 @@ class EmergencySender {
     ));
 
     final peers = await relay.originate(id);
-    return SendResult((await db.getMessage(id))!, peers, pos.fromCache);
+    return SendResult((await db.getMessage(id))!, peers, pos.fromCache, locationAge: pos.age);
   }
 }

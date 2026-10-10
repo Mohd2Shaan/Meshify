@@ -40,11 +40,12 @@ Future<void> main() async {
         body: a.body!,
       )));
   final controller = MeshController(db: db, nearby: nearby, service: background);
+  final location = LocationService();
   final sender = EmergencySender(
     db: db,
     relay: relay,
     crypto: crypto,
-    location: LocationService(),
+    location: location,
     deviceId: deviceId,
     config: config,
   );
@@ -73,6 +74,7 @@ Future<void> main() async {
         Provider.value(value: config),
         Provider.value(value: crypto),
         Provider.value(value: sender),
+        Provider.value(value: location),
         Provider.value(value: background),
         ChangeNotifierProvider.value(value: nearby),
         ChangeNotifierProvider.value(value: relay),

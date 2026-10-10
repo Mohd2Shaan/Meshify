@@ -64,6 +64,12 @@ class SendEmergencyScreen extends StatelessWidget {
     );
   }
 
+  static String _age(Duration d) {
+    if (d.inMinutes < 1) return 'just now';
+    if (d.inHours < 1) return '${d.inMinutes} min ago';
+    return '${d.inHours} h ${d.inMinutes % 60} min ago';
+  }
+
   Future<void> _confirm(BuildContext context, NeedType type) async {
     final note = await showModalBottomSheet<String>(
       context: context,
@@ -84,7 +90,9 @@ class SendEmergencyScreen extends StatelessWidget {
         content: Row(children: [
           CircularProgressIndicator(),
           SizedBox(width: 20),
-          Expanded(child: Text('Getting your location…')),
+          Expanded(
+              child: Text('Getting your location…\n'
+                  'Without internet the first GPS fix can take up to a minute.')),
         ]),
       ),
     );
@@ -93,7 +101,7 @@ class SendEmergencyScreen extends StatelessWidget {
       final r = await sender.send(type, note: note);
       result = '${type.label} alert saved. '
           '${r.peersQueued == 0 ? 'No phones nearby yet: it will be passed on as soon as one connects.' : 'Sending to ${r.peersQueued} nearby phone(s).'}'
-          '${r.usedCachedLocation ? ' (Used your last known location.)' : ''}';
+          '${r.usedCachedLocation ? ' (No fresh GPS fix: used your location from ${_age(r.locationAge)}.)' : ''}';
     } on LocationUnavailable catch (e) {
       result = 'Not sent: $e';
     } on InvalidMessage catch (e) {

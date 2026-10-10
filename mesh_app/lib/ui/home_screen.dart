@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../db/app_database.dart';
 import '../mesh/nearby_service.dart';
+import '../services/location_service.dart';
 import 'alerts_screen.dart';
 import 'messages_screen.dart';
 import 'nearby_devices_screen.dart';
@@ -17,9 +18,29 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _alertsTab = 2;
   int _tab = 0;
+
+  // Start GPS as soon as the app is on screen: offline, the first fix can
+  // take a minute, and it should be ready before someone taps SEND.
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    unawaited(context.read<LocationService>().warmUp());
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) unawaited(context.read<LocationService>().warmUp());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
