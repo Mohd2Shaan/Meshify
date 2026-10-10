@@ -1,0 +1,9 @@
+.git
+**/build
+**/.gradle
+**/secrets
+mesh_app
+*.pdf
+*.docx
+*.png
+*.md

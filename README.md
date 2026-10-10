@@ -1,4 +1,6 @@
-# Offline-First Emergency Mesh Communication System
+# Meshify
+
+**Offline-First Emergency Mesh Communication System.**
 
 Phones relay short, encrypted emergency messages to each other over Bluetooth /
 Wi-Fi Direct with no internet, until one of them (a gateway) reaches HQ. HQ
@@ -11,7 +13,7 @@ shows each message on a live map for responders.
 | `dashboard/` | Responder map: view, assign team, update status (FR-11 to FR-13) | HTML/JS + Leaflet, served by the backend |
 | `proto/` | Wire format shared by app and backend | Protocol Buffers |
 
-Design documents (SRS, diagrams, reports) are in the repository root.
+The design documents (SRS, UML diagrams, reports) are kept outside this repository.
 
 ## Tests
 
@@ -67,3 +69,33 @@ cd mesh_app && flutter test      # 24 tests: relay on a simulated 3-phone mesh,
 Without phones, `cd backend && ./gradlew seedDemo` posts sealed incidents
 marked **[TEST]** through the same gateway API, which is useful for rehearsing
 the dashboard.
+
+## Hosting the backend on Railway
+
+The root `Dockerfile` builds the backend and bundles the dashboard;
+`railway.json` tells Railway to use it and to health-check `/api/health`.
+
+1. In Railway: **New Project → Deploy from GitHub repo** → pick this repo.
+2. **+ New → Database → Add PostgreSQL** in the same project.
+3. On the backend service → **Variables**, add:
+
+   | Variable | Value |
+   |---|---|
+   | `DB_URL` | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/${{Postgres.PGDATABASE}}` |
+   | `DB_USER` | `${{Postgres.PGUSER}}` |
+   | `DB_PASSWORD` | `${{Postgres.PGPASSWORD}}` |
+   | `MESH_PRIVATE_KEY` | the `mesh.crypto.private-key` value from `backend/secrets/mesh-keys.properties` |
+   | `MESH_GATEWAY_API_KEYS` | a new random key (not `dev-gateway-key`) |
+   | `MESH_RESPONDER_USER` / `MESH_RESPONDER_PASSWORD` | a new dashboard login |
+
+   The private key must be the one whose public half is compiled into the app
+   (`mesh_app/lib/crypto/backend_public_key.dart`), or uploads can't be decrypted.
+4. **Settings → Networking → Generate Domain.** The dashboard is at that URL.
+5. In the app on the gateway phone: Mesh tab → Gateway → *Settings*, set the
+   backend URL to `https://<your-domain>` and the API key to the one from step 3.
+   The gateway phone now only needs mobile data, not the laptop's hotspot.
+6. Optional, to put sample incidents on the hosted dashboard (PowerShell, in `backend/`):
+   ```powershell
+   $env:MESH_GATEWAY_API_KEYS = "<key from step 3>"
+   ./gradlew seedDemo --args="https://<your-domain>"
+   ```

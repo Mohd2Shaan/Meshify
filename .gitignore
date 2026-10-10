@@ -13,3 +13,11 @@ secrets/
 
 # Gradle output inside the Flutter android folder
 mesh_app/android/build/
+
+# Design documents (SRS, diagrams, reports) are kept locally, not in the repo
+/*.pdf
+/*.docx
+/*.png
+/KICKOFF_PROMPT.md
+/PROJECT_OVERVIEW.md
+/IMPLEMENTATION_PLAN.md

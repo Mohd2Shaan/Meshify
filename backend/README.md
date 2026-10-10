@@ -105,3 +105,16 @@ see only random-looking bytes plus the routing header.
 - **Data model** follows SRS §3.4. RelayLog exists only on the phones (it
   is per-device dedup state). `Message.note` is an addition that the ER diagram
   doesn't show yet.
+
+## Packaging note
+
+Run the packaged server from the **extracted** jar, not the Boot jar directly:
+lazysodium can't load its native libsodium from a nested jar.
+
+```bash
+./gradlew bootJar
+java -Djarmode=tools -jar build/libs/backend-0.0.1-SNAPSHOT.jar extract --destination out
+java -jar out/backend-0.0.1-SNAPSHOT.jar
+```
+
+The root `Dockerfile` does this. `bootRun` and the tests are unaffected.
